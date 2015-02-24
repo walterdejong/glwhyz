@@ -1,0 +1,47 @@
+#!/usr/bin/make
+#
+#	glwhyz for Windows Makefile	WJ107
+#
+#	this requires MinGW
+#
+
+CC = gcc
+
+CFLAGS = -DEBUG -g -Wall -I/mingw/include/SDL
+LIB_OPTS = -mwindows -lmingw32 -lSDLmain -lSDL -lm -lopengl32
+EXECNAME = glwhyz
+
+.c.o:
+	$(CC) $(CFLAGS) -c -o $*.o $< 2>&1 | grep -v 'not handled in switch'
+
+CFILES = glwhyz.c
+OBJS = glwhyz.o
+
+all: glwhyz
+
+include .depend
+
+#
+#   Targets
+#
+
+glwhyz: $(OBJS)
+	$(CC) $(OBJS) -o $(EXECNAME) $(LIB_OPTS)
+
+run: glwhyz
+	./$(EXECNAME)
+
+neat:
+	rm -f core *~
+
+clean:
+	rm -f core $(OBJS) $(EXECNAME) *~
+
+mrproper: clean
+	rm -f .depend
+	touch .depend
+
+depend dep .depend:
+	$(CC) -M -I/mingw/include/SDL $(CFILES) > .depend
+
+# EOB

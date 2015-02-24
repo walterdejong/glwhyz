@@ -1,0 +1,9 @@
+TODO
+*.o
+.depend
+.swp
+.*.swp
+*~
+glwhyz
+screenshot-thumbnail.jpg
+screenshot.jpg

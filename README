@@ -1,0 +1,75 @@
+glWHYz! demo - Copyright (c) 2007 by Walter de Jong <walter@heiho.net>
+
+This is FREE software WITHOUT WARRANTY of any kind whatsoever.
+The author can not be held responsible for any damage done by using
+this software.
+
+(So much for the legal part).
+
+
+HISTORY
+Way back in 1996 in wrote the WHYz! demo in 100% assembly code for i386
+on my poor old 33 MHz 486 machine.  Actually, I wrote it in C first and
+made the assembly version from that. It was meant as an electronic
+birthday card.
+In 1997, I ported the WHYz! demo (C version) to Linux using the svgalib.
+In early 2006, I was playing aruond with SDL and ported the WHYz! demo
+to SDL.
+In 2007, I reimplemented the WHYz! demo in SDL/GL. This is a full rewrite,
+only the wave effect remains the same, but this was fully rewritten as
+well.
+
+
+USAGE
+There are some things you can do while it is running:
+- resize the window. It will scale accordingly.
+- press Pause or P to pause the demo
+- press w for a wireframe model (this uncovers how it all works)
+- press plus/minus to change the speed. This effects the framerate
+  (which is normally capped to 30 FPS)
+- press f to disable framerate capping and benchmark the number
+  of frames you can get on your system. The FPS are printed in the
+  console window where you started the glWHYz! demo from.
+- press Escape to quit the program
+
+
+RANDOM REMARKS
+- This is my second program with OpenGL and took me only 1 day to write.
+
+- I actually had to tune down the speed of the wave, because it was too
+  fast and you would get sick by just looking at it.
+
+- This is the first texture mapped WHYz! demo. In the other versions, I was
+  only shoving pixels around.
+
+- The "WHYz" text is a bitmap, and it shows ugly zigzags, especially
+  alongside the "W" and the "Y". It would be better to construct each letter
+  out of polygons, and wave them around seperately. (This would mean a lot
+  more work!)
+
+- The wave looks a bit 3D-ish, but this is all 2D code. 3D is possible, but
+  you'd have to add Z-coordinates everywhere.
+
+- the polygons are all triangles. You could get away with using quads
+  (rectangles), but this should be faster. Although you would never
+  notice the difference.
+
+- In version 1.0, almost all triangles are facing backwards. This little
+  prob has been fixed in 1.1
+
+- There is no music, but adding music with SDL is easy.
+
+- The copyright text is a bitmap (yuck). Sometimes, it displays artifacts!
+  Rendering text in OpenGL is not fun. Most of the time people simply use
+  bitmaps for each character and texture them into place. I'd rather have
+  a postscript-like approach where every character is carefully rendered.
+  (way too sophisticated for this little gadget)
+
+- Windows port works. Should work without probs on MacOS X too.
+
+
+Greets,
+
+     --Walter
+
+EOB
