@@ -89,7 +89,7 @@ SDL_GLContext glcontext;
 
 const char *title = "glWHYz - WJ107/WJ115";
 
-int options = 0;	/* OPT_FULLSCREEN; */
+int options = OPT_FULLSCREEN;
 
 float screen_w = (float)SCREEN_WIDTH;
 float screen_h = (float)SCREEN_HEIGHT;
@@ -468,6 +468,22 @@ void create_window(int w, int h) {
 	glcontext = SDL_GL_CreateContext(main_window);
 
 	SDL_GL_SetSwapInterval(1);
+
+	/* get screen dimensions */
+	if (modeflags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+		SDL_DisplayMode mode;
+
+		SDL_SetWindowFullscreen(main_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		/* get display dimensions */
+		SDL_GetDisplayMode(0, 0, &mode);
+		w = mode.w;
+		h = mode.h;
+	} else {
+		SDL_GetWindowSize(main_window, &w, &h);
+	} 
+	debug("screen dimensions: %dx%d", w, h);
+	screen_w = (float)w;
+	screen_h = (float)h;
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
