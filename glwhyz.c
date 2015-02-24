@@ -4,8 +4,8 @@
 
 #include "tga.h"
 
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <SDL.h>
+#include <gl.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,11 +14,10 @@
 #include <math.h>
 #include <assert.h>
 
-/* enable debug printing
-#define DEBUG
-*/
+/* enable debug printing */
+#define DEBUG	1
 
-#define VERSION				"v1.2"
+#define VERSION				"v2.0"
 
 #define SCREEN_WIDTH		1920
 #define SCREEN_HEIGHT		1080
@@ -85,6 +84,13 @@ typedef struct {
 	int depth;
 } Particle;
 
+SDL_Window *main_window = NULL;
+SDL_GLContext glcontext;
+
+const char *title = "glWHYz - WJ107/WJ115";
+
+int options = 0;	/* OPT_FULLSCREEN; */
+
 /*
 	used for the wave effect:
 	* org_vertex holds a large square that has been subdivided into small triangles
@@ -95,7 +101,6 @@ Vertex org_vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
 
 GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		/* wave table with offsets */
 
-SDL_Surface *screen = NULL;					/* the SDL screen */
 Uint32 ticks;								/* used for capping the framerate */
 int frame_delay = FRAME_DELAY;
 
@@ -104,8 +109,6 @@ GLuint textures[NUM_TEXTURES];				/* GL texture identifiers */
 int scroller_depth = 2;						/* the scroller can "move" between layers */
 
 Particle particles[NUM_PARTICLES];			/* particle particles */
-
-int options = OPT_FULLSCREEN;
 
 
 void debug(char *fmt, ...) {
@@ -122,6 +125,11 @@ void debug(char *fmt, ...) {
 }
 
 void exit_program(int exit_code) {
+	if (main_window != NULL) {
+		SDL_GL_DeleteContext(glcontext);
+		SDL_DestroyWindow(main_window);
+		main_window = NULL;
+	}
 	SDL_Quit();
 	exit(exit_code);
 }
@@ -433,33 +441,38 @@ void init_gl(void) {
 	glAlphaFunc(GL_GREATER, 0.1f);
 }
 
-void resize_window(int w, int h) {
-Uint32 flags;
-
+void create_window(int w, int h) {
 	if (w <= 0)
 		w = 1;
 
 	if (h <= 0)
 		h = 1;
 
+/*
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+*/
+	Uint32 modeflags = SDL_WINDOW_OPENGL;
+	if (options & OPT_FULLSCREEN) {
+		modeflags |= SDL_WINDOW_FULLSCREEN;
+		w = h = 0;
+	} else {
+		modeflags |= SDL_WINDOW_RESIZABLE;
 
-	debug("SDL_SetVideoMode(%d, %d, %d)", w, h, SCREEN_BPP);
-
-	flags = SDL_OPENGL;
-	if (options & OPT_FULLSCREEN)
-		flags |= SDL_FULLSCREEN;
-
-	if ((screen = SDL_SetVideoMode(w, h, SCREEN_BPP, flags)) == NULL) {
-		fprintf(stderr, "failed to set video mode\n");
-		SDL_Quit();
-		exit(1);
 	}
+	main_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, 0, w, h, modeflags);
+	if (main_window == NULL) {
+		fprintf(stderr, "failed to create window: %s\n", SDL_GetError());
+		exit(-1);
+	}
+	glcontext = SDL_GL_CreateContext(main_window);
+
+	SDL_GL_SetSwapInterval(1);
+
 	glViewport(0, 0, (GLint)w, (GLint)h);
 
 	glMatrixMode(GL_PROJECTION);
@@ -636,7 +649,7 @@ int n;
 void draw_screen(void) {
 	draw_scene();
 
-	SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow(main_window);
 
 	if (options & OPT_FRAMECOUNTER)
 		count_framerate();
@@ -644,7 +657,7 @@ void draw_screen(void) {
 		cap_framerate();
 }
 
-void handle_keypress(SDLKey key) {
+void handle_keypress(int key) {
 	switch(key) {
 		case SDLK_ESCAPE:
 			exit_program(0);
@@ -690,7 +703,7 @@ void handle_keypress(SDLKey key) {
 	}
 }
 
-void handle_keyrelease(SDLKey key) {
+void handle_keyrelease(int key) {
 	;
 }
 
@@ -699,30 +712,27 @@ SDL_Event event;
 
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
-			case SDL_QUIT:
+			case SDL_WINDOWEVENT_CLOSE:
+				debug("CLOSE");
 				exit_program(0);
 
-			case SDL_VIDEOEXPOSE:
-				debug("SDL_VIDEOEXPOSE");
+			case SDL_WINDOWEVENT_SHOWN:
+				debug("SHOWN");
 				draw_screen();
 				break;
 
-			case SDL_VIDEORESIZE:
-				debug("SDL_VIDEORESIZE");
-#if 0
-/*
-	code is disabled because resizing breaks OpenGL context;
-	textures are gone, etc.
-*/
-				if (!(options & OPT_FULLSCREEN))
-					resize_window(event.resize.w, event.resize.h);
-#endif
+			case SDL_WINDOWEVENT_EXPOSED:
+				debug("EXPOSED");
+				draw_screen();
 				break;
 
-			case SDL_ACTIVEEVENT:				/* window lost focus */
-				if (event.active.state == SDL_APPACTIVE && !event.active.gain)
-					SDL_WaitEvent(NULL);		/* freeze it */
+			case SDL_WINDOWEVENT_RESIZED:
+				debug("RESIZED");
+				break;
 
+			case SDL_WINDOWEVENT_FOCUS_LOST:
+				debug("FOCUS_LOST");
+				SDL_WaitEvent(NULL);		/* freeze it */
 				break;
 
 			case SDL_KEYDOWN:
@@ -778,15 +788,13 @@ int format;
 }
 
 int main(int argc, char *argv[]) {
-	printf("glWHYz! demo " VERSION " - Copyright (c) 2007 by Walter de Jong <walter@heiho.net>\n");
+	printf("glWHYz! demo " VERSION " - Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>\n");
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "SDL_Init() failed\n");
 		return -1;
 	}
-	resize_window(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-	SDL_WM_SetCaption("OpenGL WHYz! demo - WJ107", "glWHYz!");
+	create_window(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	init_gl();
 	glGenTextures(NUM_TEXTURES, textures);
