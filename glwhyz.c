@@ -91,6 +91,10 @@ const char *title = "glWHYz - WJ107/WJ115";
 
 int options = 0;	/* OPT_FULLSCREEN; */
 
+float screen_w = (float)SCREEN_WIDTH;
+float screen_h = (float)SCREEN_HEIGHT;
+float cam_x = 0.0f, cam_y = 0.0f;
+
 /*
 	used for the wave effect:
 	* org_vertex holds a large square that has been subdivided into small triangles
@@ -141,10 +145,10 @@ void draw_wave(void) {
 int i, j, v, n;
 GLfloat vertex_arr[(DIM_W+1) * 4], tex_arr[(DIM_W+1) * 4];
 
-	glLoadIdentity();
+	glPushMatrix();
 
 	/* center it */
-	glTranslatef((SCREEN_WIDTH - DIM_X) * 0.5f - DIM_X * 0.5f, (SCREEN_HEIGHT - DIM_Y) * 0.5f - DIM_Y * 0.5f, 0.0f);
+	glTranslatef(DIM_X - DIM_X * 0.1f, 0.0, 0.0f);
 	/* make reasonable size */
 	glScalef(2.0f, 2.0f, 1.0f);
 
@@ -152,9 +156,6 @@ GLfloat vertex_arr[(DIM_W+1) * 4], tex_arr[(DIM_W+1) * 4];
 		glColor3ub(0xff, 0xff, 0);
 
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_FG]);
-
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
 	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
@@ -193,9 +194,7 @@ GLfloat vertex_arr[(DIM_W+1) * 4], tex_arr[(DIM_W+1) * 4];
 		}
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, n/2);
 	}
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
+	glPopMatrix();
 }
 
 /*
@@ -217,23 +216,11 @@ GLfloat tex_arr[8] = {
 	1, 1
 };
 
-#if 0
-/* set coordinate system to center of the screen */
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();						/* save old coordinate system */
-	glLoadIdentity();
-	glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-#else
 	glPushMatrix();
-	glLoadIdentity();
 	/* center it */
 	glTranslatef(SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f, 0.0f);
 	/* make reasonable size */
 	glScalef(256.0f, 256.0f, 1.0f);
-#endif
 
 /* spin it around */
 	glRotatef(angle, 0.0f, 0.0f, 1.0f);
@@ -245,22 +232,12 @@ GLfloat tex_arr[8] = {
 
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_BG]);
 
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-#if 0
-/* restore coordinate system */
-	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-#else
-	glPopMatrix();
-#endif
 
 	if (!(options & OPT_PAUSED)) {
 		angle += ROTATE_SPEED;			/* rotate */
@@ -293,9 +270,10 @@ GLfloat tex_arr[8] = {
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();						/* save old coordinate system */
 	glLoadIdentity();
-	glOrtho(-(GLdouble)SCREEN_WIDTH/2.0, (GLdouble)SCREEN_WIDTH/2.0, -(GLdouble)SCREEN_HEIGHT/2.0, (GLdouble)SCREEN_HEIGHT/2.0, (GLdouble)-1.0, (GLdouble)1.0);
+	glOrtho(-SCREEN_WIDTH * 0.5, SCREEN_WIDTH * 0.5, -SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT * 0.5, -1.0, 1.0);
 
 	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
 	glLoadIdentity();
 
 /* the scroller is under an angle */
@@ -313,9 +291,6 @@ GLfloat tex_arr[8] = {
 
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_COPYRIGHT]);
 
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
@@ -325,6 +300,7 @@ GLfloat tex_arr[8] = {
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 
 	if (!(options & OPT_PAUSED)) {
 /* when the scroller goes off-screen, restart it under an angle */
@@ -354,19 +330,23 @@ GLfloat tex_arr[8] = {
 
 void draw_particles(int depth) {
 int n;
-GLfloat vertex_arr[8] = {
+const GLfloat vertex_arr[8] = {
 	0, 0,
 	0, PARTICLE_H-1,
 	PARTICLE_W-1, 0,
 	PARTICLE_W-1, PARTICLE_H-1
 };
 
-GLfloat tex_arr[8] = {
+const GLfloat tex_arr[8] = {
 	0, 0,
 	0, 1,
 	1, 0,
 	1, 1
 };
+
+GLfloat particle_arr[8];
+
+	glPushMatrix();
 
 	if (options & OPT_WIREFRAME)
 		glColor3f(0.0f, 1.0f, 1.0f);
@@ -376,29 +356,38 @@ GLfloat tex_arr[8] = {
 	}
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_PARTICLE]);
 
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
-	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
+	memcpy(particle_arr, vertex_arr, sizeof(GLfloat) * 8);
+	glVertexPointer(2, GL_FLOAT, 0, particle_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
 	for(n = 0; n < NUM_PARTICLES; n++) {
 		if (particles[n].depth == depth		/* && visible */
 			&& particles[n].y > -PARTICLE_H && particles[n].y < SCREEN_HEIGHT) {
 
-			glLoadIdentity();
-			glTranslatef(particles[n].x, particles[n].y, 0.0f);
+			memcpy(particle_arr, vertex_arr, sizeof(GLfloat) * 8);
+			particle_arr[0] += particles[n].x;
+			particle_arr[1] += particles[n].y;
+			particle_arr[2] += particles[n].x;
+			particle_arr[3] += particles[n].y;
+			particle_arr[4] += particles[n].x;
+			particle_arr[5] += particles[n].y;
+			particle_arr[6] += particles[n].x;
+			particle_arr[7] += particles[n].y;
 
 			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		}
 	}
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	glDisable(GL_BLEND);
+
+	glPopMatrix();
 }
 
 void draw_scene(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	glLoadIdentity();
+	/* reverse camera */
+	glTranslatef(-cam_x, -cam_y, 0.0f);
 
 	draw_particles(0);
 
@@ -426,6 +415,11 @@ void draw_scene(void) {
 	draw_particles(5);
 
 	glFlush();
+	GLenum err = glGetError();
+	if (err != 0) {
+		fprintf(stderr, "glGetError(): %d\n", (int)err);
+		exit_program(-1);
+	}
 }
 
 void init_gl(void) {
@@ -439,6 +433,9 @@ void init_gl(void) {
 
 	glEnable(GL_ALPHA_TEST);
 	glAlphaFunc(GL_GREATER, 0.1f);
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
 void create_window(int w, int h) {
@@ -448,17 +445,16 @@ void create_window(int w, int h) {
 	if (h <= 0)
 		h = 1;
 
-/*
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-*/
+
 	Uint32 modeflags = SDL_WINDOW_OPENGL;
 	if (options & OPT_FULLSCREEN) {
-		modeflags |= SDL_WINDOW_FULLSCREEN;
+		modeflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		w = h = 0;
 	} else {
 		modeflags |= SDL_WINDOW_RESIZABLE;
@@ -473,42 +469,24 @@ void create_window(int w, int h) {
 
 	SDL_GL_SetSwapInterval(1);
 
-	glViewport(0, 0, (GLint)w, (GLint)h);
-
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
 /* use "screen" coordinate system */
-	glOrtho((GLdouble)0, (GLdouble)SCREEN_WIDTH, (GLdouble)SCREEN_HEIGHT, (GLdouble)0, (GLdouble)-1, (GLdouble)1);
+	glOrtho(0.0, (GLdouble)SCREEN_WIDTH, (GLdouble)SCREEN_HEIGHT, 0.0, -1.0, 1.0);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+
+	glViewport(0, 0, w, h);
 }
 
 /*
-	delay until we hit our framerate
-	This way, a constant framerate is ensured and everything looks rock-solid
+	delay a while
+	It's not exact, and not trying to be exact
 */
 void cap_framerate(void) {
-static int delay = 0;
-Uint32 new_ticks;
-
-	new_ticks = SDL_GetTicks();
-
-	delay += frame_delay;
-	delay -= (new_ticks - ticks);	/* subtract time spent doing useful things */
-
-	ticks = new_ticks;
-
-	if (delay <= 0 || delay > frame_delay)
-		delay = frame_delay;
-
-	SDL_Delay(delay);
-
-	new_ticks = SDL_GetTicks();
-	delay -= (new_ticks - ticks);						/* time really waited */
-
-	ticks = new_ticks;
+	SDL_Delay(FRAME_DELAY);
 }
 
 void count_framerate(void) {
@@ -658,6 +636,8 @@ void draw_screen(void) {
 }
 
 void handle_keypress(int key) {
+int flags;
+
 	switch(key) {
 		case SDLK_ESCAPE:
 			exit_program(0);
@@ -696,6 +676,22 @@ void handle_keypress(int key) {
 
 		case SDLK_f:
 			options ^= OPT_FRAMECOUNTER;
+			break;
+
+		case SDLK_RETURN:
+			flags = SDL_GetWindowFlags(main_window);
+			if (flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_FULLSCREEN_DESKTOP)) {
+				SDL_SetWindowFullscreen(main_window, 0);
+				screen_w = (float)SCREEN_WIDTH;
+				screen_h = (float)SCREEN_HEIGHT;
+				glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			} else {
+				SDL_SetWindowFullscreen(main_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+				/* TODO get display dimensions */
+				screen_w = 2560.0f;
+				screen_h = 1440.0f;
+				glViewport(0, 0, 2560, 1440);
+			}
 			break;
 
 		default:
