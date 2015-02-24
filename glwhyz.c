@@ -89,7 +89,7 @@ SDL_GLContext glcontext;
 
 const char *title = "glWHYz - WJ107/WJ115";
 
-int options = OPT_FULLSCREEN;
+int options = 0;	/* OPT_FULLSCREEN; */
 
 float screen_w = (float)SCREEN_WIDTH;
 float screen_h = (float)SCREEN_HEIGHT;
@@ -454,6 +454,10 @@ void create_window(int w, int h) {
 
 	Uint32 modeflags = SDL_WINDOW_OPENGL;
 	if (options & OPT_FULLSCREEN) {
+		/*
+		 * note: SDL_WINDOW_FULLSCREEN may produce weird results
+		 * like having overscan bands
+		 */
 		modeflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		w = h = 0;
 	} else {
@@ -695,6 +699,10 @@ int flags;
 			break;
 
 		case SDLK_RETURN:
+			if (options & OPT_FULLSCREEN) {
+				/* doesn't work; can't set window size; SDL bug? */
+				break;
+			}
 			flags = SDL_GetWindowFlags(main_window);
 			if (flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_FULLSCREEN_DESKTOP)) {
 				SDL_SetWindowFullscreen(main_window, 0);
