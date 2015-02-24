@@ -686,11 +686,15 @@ int flags;
 				screen_h = (float)SCREEN_HEIGHT;
 				glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 			} else {
+				SDL_DisplayMode mode;
+
 				SDL_SetWindowFullscreen(main_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-				/* TODO get display dimensions */
-				screen_w = 2560.0f;
-				screen_h = 1440.0f;
-				glViewport(0, 0, 2560, 1440);
+				/* get display dimensions */
+				SDL_GetDisplayMode(0, 0, &mode);
+				debug("fullscreen dimensions: %dx%d", mode.w, mode.h);
+				screen_w = (float)mode.w;
+				screen_h = (float)mode.h;
+				glViewport(0, 0, mode.w, mode.h);
 			}
 			break;
 
