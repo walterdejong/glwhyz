@@ -15,7 +15,9 @@
 #include <assert.h>
 
 /* enable debug printing */
+/*
 #define DEBUG	1
+*/
 
 #define VERSION				"v2.0"
 
