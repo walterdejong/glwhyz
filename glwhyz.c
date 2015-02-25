@@ -46,10 +46,10 @@
 */
 #define SCROLLER_WIDTH		((GLfloat)SCREEN_WIDTH)
 #define SCROLLER_HEIGHT		16.0f
-#define SCROLLER_SPEED		2.0f
+#define SCROLLER_SPEED		10.0f
 
 /* rotating background */
-#define ROTATE_SPEED		2.5f
+#define ROTATE_SPEED		120.0f
 
 /* defines for the wave form */
 #define DIM_X				512
@@ -59,6 +59,7 @@
 #define DIM_W				(DIM_X / QUAD_W)
 #define DIM_H				(DIM_Y / QUAD_H)
 #define NUM_VERTEX			((DIM_W+1) * (DIM_H+1))
+#define WAVE_SPEED			50.0f
 
 /* particles */
 #define PARTICLE_W			64
@@ -66,6 +67,7 @@
 #define NUM_PARTICLES		32
 #define PARTICLE_ACCEL		0.1f
 #define PARTICLE_DEAD		-1
+#define PARTICLE_SPEED		50.0f
 
 /* options */
 #define OPT_WIREFRAME		1
@@ -77,6 +79,13 @@
 typedef struct {
 	GLfloat x, y;
 } Vertex;
+
+typedef struct {
+	GLfloat x;
+	GLfloat direction;
+	GLfloat angle;
+	int depth;			/* the scroller can "move" between layers */
+} Scroller;
 
 /* (simple) particles */
 typedef struct {
@@ -104,14 +113,14 @@ float cam_x = 0.0f, cam_y = 0.0f;
 Vertex org_vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
 
 GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		/* wave table with offsets */
+float background_angle = 0.0f;		/* rotation of background (green smiley) */
 
 Uint32 ticks;								/* used for capping the framerate */
 int frame_delay = FRAME_DELAY;
 
 GLuint textures[NUM_TEXTURES];				/* GL texture identifiers */
 
-int scroller_depth = 2;						/* the scroller can "move" between layers */
-
+Scroller scroller;							/* copyright scroller */
 Particle particles[NUM_PARTICLES];			/* particle particles */
 
 
@@ -201,7 +210,6 @@ GLfloat vertex_arr[(DIM_W+1) * 4], tex_arr[(DIM_W+1) * 4];
 	draw a spinning background
 */
 void draw_background(void) {
-static GLfloat angle = 350.0f;
 GLfloat vertex_arr[8] = { 
 	-1, 1,
 	-1, -1,
@@ -223,7 +231,7 @@ GLfloat tex_arr[8] = {
 	glScalef(256.0f, 256.0f, 1.0f);
 
 /* spin it around */
-	glRotatef(angle, 0.0f, 0.0f, 1.0f);
+	glRotatef(background_angle, 0.0f, 0.0f, 1.0f);
 
 	if (options & OPT_WIREFRAME)
 		glColor3ub(0, 0xa0, 0);
@@ -238,35 +246,24 @@ GLfloat tex_arr[8] = {
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glPopMatrix();
-
-	if (!(options & OPT_PAUSED)) {
-		angle += ROTATE_SPEED;			/* rotate */
-		if (angle > 360.0f)
-			angle -= 360.0f;
-	}
 }
 
-void draw_copyright(void) {
-static GLfloat x_scroll = SCREEN_WIDTH/2.0f;
-static GLfloat direction = -SCROLLER_SPEED;
-static GLfloat angle = 0.0f;
-int new_depth;
+void draw_scroller(void) {
+	const GLfloat vertex_arr[8] = { 
+		0, SCROLLER_HEIGHT,
+		0, 0,
+		SCROLLER_WIDTH, SCROLLER_HEIGHT,
+		SCROLLER_WIDTH, 0
+	};
 
-GLfloat vertex_arr[8] = { 
-	0, SCROLLER_HEIGHT,
-	0, 0,
-	SCROLLER_WIDTH, SCROLLER_HEIGHT,
-	SCROLLER_WIDTH, 0
-};
+	const GLfloat tex_arr[8] = {
+		0, 0,
+		0, 1,
+		1, 0,
+		1, 1
+	};
 
-GLfloat tex_arr[8] = {
-	0, 0,
-	0, 1,
-	1, 0,
-	1, 1
-};
-
-/* set coordinate system to center of the screen */
+	/* set coordinate system to center of the screen */
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();						/* save old coordinate system */
 	glLoadIdentity();
@@ -276,15 +273,15 @@ GLfloat tex_arr[8] = {
 	glPushMatrix();
 	glLoadIdentity();
 
-/* the scroller is under an angle */
-	if (angle) {
-		glRotatef(angle, 0.0f, 0.0f, 1.0f);
-		glTranslatef(x_scroll, 0.0f, 0.0f);
+	/* the scroller is under an angle */
+	if (scroller.angle > 0.01f) {
+		glRotatef(scroller.angle, 0.0f, 0.0f, 1.0f);
+		glTranslatef(scroller.x, 0.0f, 0.0f);
 	} else {
-/* if the angle is 0, put the scroller below in the screen */
-		glTranslatef(x_scroll, -(GLfloat)SCREEN_HEIGHT/2 + SCROLLER_HEIGHT, 0.0f);
+		/* if the angle is 0, put the scroller below in the screen */
+		glTranslatef(scroller.x, -(GLfloat)SCREEN_HEIGHT * 0.5f + SCROLLER_HEIGHT, 0.0f);
 	}
-	glScalef(0.5f, 1.25f, 1.0f);
+	glScalef(0.5f, 1.25f, 1.0f);	/* FIXME hardcoded scaling factors ... */
 
 	if (options & OPT_WIREFRAME)
 		glColor3ub(0xff, 0, 0xff);
@@ -301,31 +298,6 @@ GLfloat tex_arr[8] = {
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
-
-	if (!(options & OPT_PAUSED)) {
-/* when the scroller goes off-screen, restart it under an angle */
-		x_scroll += direction;
-		if ((x_scroll + SCROLLER_WIDTH + SCROLLER_WIDTH/4) < -SCREEN_WIDTH/2
-			|| x_scroll > SCREEN_WIDTH/2 + SCROLLER_WIDTH/4) {
-			x_scroll = (GLfloat)SCREEN_WIDTH/2;
-			angle = (GLfloat)(rand() % 180 - 90);
-
-			direction = -SCROLLER_SPEED;
-
-			if (rand() & 1) {
-				direction = -direction;
-				x_scroll = -x_scroll;
-				x_scroll -= SCROLLER_WIDTH;
-			}
-/* set a new scroller depth, do not choose the same depth twice in a row */
-			new_depth = rand() % 2;
-			if (scroller_depth == new_depth) {
-				new_depth++;
-				new_depth %= 2;
-			}
-			scroller_depth = new_depth;
-		}
-	}
 }
 
 void draw_particles(int depth) {
@@ -391,8 +363,8 @@ void draw_scene(void) {
 
 	draw_particles(0);
 
-	if (!scroller_depth)
-		draw_copyright();
+	if (!scroller.depth)
+		draw_scroller();
 
 	draw_particles(1);
 
@@ -400,8 +372,8 @@ void draw_scene(void) {
 
 	draw_particles(2);
 
-	if (scroller_depth == 1)
-		draw_copyright();
+	if (scroller.depth == 1)
+		draw_scroller();
 
 	draw_particles(3);
 
@@ -409,17 +381,10 @@ void draw_scene(void) {
 
 	draw_particles(4);
 
-	if (scroller_depth == 2)
-		draw_copyright();
+	if (scroller.depth == 2)
+		draw_scroller();
 
 	draw_particles(5);
-
-	glFlush();
-	GLenum err = glGetError();
-	if (err != 0) {
-		fprintf(stderr, "glGetError(): %d\n", (int)err);
-		exit_program(-1);
-	}
 }
 
 void init_gl(void) {
@@ -501,14 +466,6 @@ void create_window(int w, int h) {
 	glViewport(0, 0, w, h);
 }
 
-/*
-	delay a while
-	It's not exact, and not trying to be exact
-*/
-void cap_framerate(void) {
-	SDL_Delay(FRAME_DELAY);
-}
-
 void count_framerate(void) {
 static int fps = 0;
 Uint32 new_ticks;
@@ -555,30 +512,37 @@ double val, d;
 	}
 }
 
+void init_particles(void) {
+int n;
+
+	for(n = 0; n < NUM_PARTICLES; n++)
+		particles[n].depth = PARTICLE_DEAD;
+}
+
+void init_scroller(void) {
+	scroller.x = SCREEN_WIDTH * 0.5f;
+	scroller.direction = -SCROLLER_SPEED;
+	scroller.angle = 0.0f;
+	scroller.depth = 2;			/* the scroller can "move" between layers */
+}
+
 /*
 	on every frame, add wave table values to the coordinates of the triangles
 */
-void animate(void) {
-static int xt = 0, yt = 0, delay = 0;
+void animate_wave(float timestep) {
+static int xt = 0, yt = 0;
 int i, j, n;
 
-#if WAVE_DELAY
-	if (delay) {				/* slow down! the wave is too fast */
-		delay++;
-		if (delay >= WAVE_DELAY)
-			delay = 0;
+	if (timestep <= 0.001f)
 		return;
-	} else
-		delay++;
-#endif
 
 	memcpy(vertex, org_vertex, sizeof(Vertex) * NUM_VERTEX);
 
 	n = 0;
 	for(j = 0; j < DIM_H+1; j++) {
 		for(i = 0; i < DIM_W+1; i++) {
-			vertex[n].x += x_offsets[xt];
-			vertex[n].y += y_offsets[yt];
+			vertex[n].x += x_offsets[xt] * timestep * WAVE_SPEED;
+			vertex[n].y += y_offsets[yt] * timestep * WAVE_SPEED;
 			yt++;
 			if (yt >= DIM_H+1)
 				yt = 0;
@@ -598,37 +562,74 @@ int i, j, n;
 		yt = 0;
 }
 
+void rotate_background(float timestep) {
+	if (timestep <= 0.001f)
+		return;
+
+	if (!(options & OPT_PAUSED)) {
+		background_angle += ROTATE_SPEED * timestep;	/* rotate */
+		if (background_angle >= 360.0f)
+			background_angle -= 360.0f;
+	}
+}
+
+void move_scroller(float timestep) {
+	if (timestep <= 0.001f)
+		return;
+
+	if (options & OPT_PAUSED)
+		return;
+
+	scroller.x += scroller.direction * timestep * SCROLLER_SPEED;
+
+	/* when the scroller goes off-screen, restart it under an angle */
+	if ((scroller.x + SCROLLER_WIDTH + SCROLLER_WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
+		|| scroller.x > SCREEN_WIDTH * 0.5f + SCROLLER_WIDTH * 0.25f) {
+		scroller.x = (GLfloat)SCREEN_WIDTH * 0.5f;
+		scroller.angle = (GLfloat)(rand() % 180 - 90);
+		scroller.direction = -SCROLLER_SPEED;
+
+		if (rand() & 1) {
+			scroller.direction = -scroller.direction;
+			scroller.x = -scroller.x;
+			scroller.x -= SCROLLER_WIDTH;
+		}
+		/* set a new scroller depth, do not choose the same depth twice in a row */
+		int new_depth = rand() % 2;
+		if (scroller.depth == new_depth) {
+			new_depth++;
+			new_depth %= 2;
+		}
+		scroller.depth = new_depth;
+	}
+}
+
 void init_particle(int n) {
-/*
-	these particles move in the Y direction and hardly in the X direction
-	allowing them to start far off the screen is my way of spreading them out better
-	it's not perfect, but it works somewhat
-*/
+	/*
+		these particles move in the Y direction and hardly in the X direction
+		allowing them to start far off the screen is my way of spreading them out better
+		it's not perfect, but it works somewhat
+	*/
 	particles[n].x = rand() % (SCREEN_WIDTH - PARTICLE_W);
 	particles[n].y = SCREEN_HEIGHT + PARTICLE_H + (rand() % SCREEN_HEIGHT);
 	particles[n].speed = (rand() % 5) + 5.0f;
-	particles[n].drift = (rand() % 5) - 2.0f / 2.0f;
+	particles[n].drift = (rand() % 5) * 0.5f - 1.0f;
 	particles[n].depth = rand() % 6;
-
 	particles[n].speed = particles[n].depth * 0.5f + 1.0f;	/* speed based on depth */
 }
 
-void init_particles(void) {
+void move_particles(float timestep) {
 int n;
 
-	for(n = 0; n < NUM_PARTICLES; n++)
-		particles[n].depth = PARTICLE_DEAD;
-}
-
-void move_particles(void) {
-int n;
+	if (timestep <= 0.001f)
+		return;
 
 	for(n = 0; n < NUM_PARTICLES; n++) {
 		if (particles[n].depth != PARTICLE_DEAD) {
-			particles[n].y -= particles[n].speed;
+			particles[n].y -= particles[n].speed * timestep * PARTICLE_SPEED;
 			particles[n].speed += PARTICLE_ACCEL;		/* acceleration */
 
-			particles[n].x += particles[n].drift;
+			particles[n].x += particles[n].drift * timestep * PARTICLE_SPEED;
 
 			if (particles[n].y <= -PARTICLE_H)
 				particles[n].depth = PARTICLE_DEAD;
@@ -647,12 +648,16 @@ int n;
 void draw_screen(void) {
 	draw_scene();
 
+	glFlush();
+	GLenum err = glGetError();
+	if (err != 0) {
+		fprintf(stderr, "glGetError(): %d\n", (int)err);
+		exit_program(-1);
+	}
 	SDL_GL_SwapWindow(main_window);
 
 	if (options & OPT_FRAMECOUNTER)
 		count_framerate();
-	else
-		cap_framerate();
 }
 
 void handle_keypress(int key) {
@@ -836,20 +841,31 @@ int main(int argc, char *argv[]) {
 
 	init_wave();
 	init_particles();
+	init_scroller();
 
 	srand(time(NULL));
 
 	ticks = SDL_GetTicks();
+	const float perf_freq = (float)SDL_GetPerformanceFrequency();
+	debug("perf_freq: %f", perf_freq);
+	Uint64 last_time = SDL_GetPerformanceCounter();
 	draw_screen();
-
 	for(;;) {
 		handle_events();
 
+		Uint64 now = SDL_GetPerformanceCounter();
+		float timestep = (now - last_time) / perf_freq;
+/*		debug("timestep %f", timestep);	*/
+
 		if (!(options & OPT_PAUSED)) {
-			animate();
-			move_particles();
+			animate_wave(timestep);
+			rotate_background(timestep);
+			move_particles(timestep);
+			move_scroller(timestep);
 		}
 		draw_screen();
+
+		last_time = now;
 	}
 	SDL_Quit();
 	return 0;
