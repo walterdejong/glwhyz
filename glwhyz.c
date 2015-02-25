@@ -669,6 +669,42 @@ void draw_screen(void) {
 		count_framerate();
 }
 
+void window_event(int event) {
+	switch(event) {
+		case SDL_WINDOWEVENT_CLOSE:
+			debug("CLOSE");
+			exit_program(0);
+
+		case SDL_WINDOWEVENT_SHOWN:
+			debug("SHOWN");
+			draw_screen();
+			break;
+
+		case SDL_WINDOWEVENT_EXPOSED:
+			debug("EXPOSED");
+			draw_screen();
+			break;
+
+		case SDL_WINDOWEVENT_RESIZED:
+			debug("RESIZED");
+			int w, h;
+			SDL_GetWindowSize(main_window, &w, &h);
+			debug("window size: %dx%d", w, h);
+			screen_w = (float)w;
+			screen_h = (float)h;
+			glViewport(0, 0, screen_w, screen_h);
+			break;
+
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+			debug("FOCUS_LOST");
+			SDL_WaitEvent(NULL);		/* freeze it */
+			break;
+
+		default:
+			;
+	}
+}
+
 void handle_keypress(int key) {
 int flags;
 
@@ -738,28 +774,9 @@ SDL_Event event;
 
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
-			case SDL_WINDOWEVENT_CLOSE:
-				debug("CLOSE");
-				exit_program(0);
-
-			case SDL_WINDOWEVENT_SHOWN:
-				debug("SHOWN");
-				draw_screen();
-				break;
-
-			case SDL_WINDOWEVENT_EXPOSED:
-				debug("EXPOSED");
-				draw_screen();
-				break;
-
-			case SDL_WINDOWEVENT_RESIZED:
-				debug("RESIZED");
-				/* FIXME deal with resize */
-				break;
-
-			case SDL_WINDOWEVENT_FOCUS_LOST:
-				debug("FOCUS_LOST");
-				SDL_WaitEvent(NULL);		/* freeze it */
+			case SDL_WINDOWEVENT:
+				debug("WINDOWEVENT");
+				window_event(event.window.event);
 				break;
 
 			case SDL_KEYDOWN:
