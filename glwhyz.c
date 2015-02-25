@@ -59,7 +59,7 @@
 #define DIM_W				(DIM_X / QUAD_W)
 #define DIM_H				(DIM_Y / QUAD_H)
 #define NUM_VERTEX			((DIM_W+1) * (DIM_H+1))
-#define WAVE_SPEED			50.0f
+#define WAVE_SPEED			16.0f
 
 /* particles */
 #define PARTICLE_W			64
@@ -67,7 +67,7 @@
 #define NUM_PARTICLES		32
 #define PARTICLE_ACCEL		0.1f
 #define PARTICLE_DEAD		-1
-#define PARTICLE_SPEED		50.0f
+#define PARTICLE_SPEED		30.0f
 
 /* options */
 #define OPT_WIREFRAME		1
@@ -79,6 +79,11 @@
 typedef struct {
 	GLfloat x, y;
 } Vertex;
+
+typedef struct {
+	int xt, yt;
+	float xtime, ytime;
+} Wave;
 
 typedef struct {
 	GLfloat x;
@@ -110,16 +115,17 @@ float cam_x = 0.0f, cam_y = 0.0f;
 	* vertex holds the manipulated triangles, this is what is being drawn
 	* texture_vertex holds the texture coordinates
 */
+/* FIXME these should be part of Wave, really */
 Vertex org_vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
 
 GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		/* wave table with offsets */
 float background_angle = 0.0f;		/* rotation of background (green smiley) */
 
 Uint32 ticks;								/* used for capping the framerate */
-int frame_delay = FRAME_DELAY;
 
 GLuint textures[NUM_TEXTURES];				/* GL texture identifiers */
 
+Wave wave;
 Scroller scroller;							/* copyright scroller */
 Particle particles[NUM_PARTICLES];			/* particle particles */
 
@@ -485,13 +491,9 @@ Uint32 new_ticks;
 	define vertices and set wave table values
 */
 void init_wave(void) {
-int i, j, n;
-double val, d;
-
-/* set coordinates for polygons and for texturing */
-	n = 0;
-	for(j = 0; j < DIM_H+1; j++) {
-		for(i = 0; i < DIM_W+1; i++) {
+	/* set coordinates for polygons and for texturing */
+	for(int j = 0, n = 0; j < DIM_H+1; j++) {
+		for(int i = 0; i < DIM_W+1; i++) {
 			org_vertex[n].x = i * QUAD_W;
 			org_vertex[n].y = j * QUAD_H;
 			texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
@@ -499,17 +501,18 @@ double val, d;
 			n++;
 		}
 	}
-/* initialize wave tables */
-	for(n = 0; n < DIM_W+1; n++) {
-		val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
-		d = sin(val*2) + cos(val)/2.0;
+	/* initialize wave tables */
+	for(int n = 0; n < DIM_W+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
+		double d = sin(val*2) + cos(val)/2.0;
 		x_offsets[n] = WAVE_SCALE * d;
 	}
-	for(n = 0; n < DIM_H+1; n++) {
-		val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
-		d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
+	for(int n = 0; n < DIM_H+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
+		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
 		y_offsets[n] = WAVE_SCALE * d;
 	}
+	wave.xt = wave.yt = 0;
 }
 
 void init_particles(void) {
@@ -530,36 +533,42 @@ void init_scroller(void) {
 	on every frame, add wave table values to the coordinates of the triangles
 */
 void animate_wave(float timestep) {
-static int xt = 0, yt = 0;
-int i, j, n;
-
 	if (timestep <= 0.001f)
 		return;
 
+	/* update wave vertices */
 	memcpy(vertex, org_vertex, sizeof(Vertex) * NUM_VERTEX);
 
-	n = 0;
-	for(j = 0; j < DIM_H+1; j++) {
-		for(i = 0; i < DIM_W+1; i++) {
-			vertex[n].x += x_offsets[xt] * timestep * WAVE_SPEED;
-			vertex[n].y += y_offsets[yt] * timestep * WAVE_SPEED;
-			yt++;
-			if (yt >= DIM_H+1)
-				yt = 0;
+	for(int j = 0, n = 0; j < DIM_H+1; j++) {
+		for(int i = 0; i < DIM_W+1; i++) {
+			vertex[n].x += x_offsets[wave.xt];
+			vertex[n].y += y_offsets[wave.yt];
+			wave.yt++;
+			if (wave.yt >= DIM_H+1)
+				wave.yt = 0;
 
 			n++;
 		}
-		xt++;
-		if (xt >= DIM_W+1)
-			xt = 0;
+		wave.xt++;
+		if (wave.xt >= DIM_W+1)
+			wave.xt = 0;
 	}
-	xt++;
-	if (xt >= DIM_W+1)
-		xt = 0;
 
-	yt++;
-	if (yt >= DIM_H+1)
-		yt = 0;
+	/* this steers the wavy animation */
+	wave.xtime += timestep * WAVE_SPEED;
+	if (wave.xtime >= 1.0f) {
+		wave.xtime -= 1.0f;
+		wave.xt++;
+		if (wave.xt >= DIM_W+1)
+			wave.xt = 0;
+	}
+	wave.ytime += timestep * WAVE_SPEED;
+	if (wave.ytime >= 1.0f) {
+		wave.ytime -= 1.0f;
+		wave.yt++;
+		if (wave.yt >= DIM_H+1)
+			wave.yt = 0;
+	}
 }
 
 void rotate_background(float timestep) {
@@ -687,18 +696,6 @@ int flags;
 			options ^= OPT_PAUSED;
 			break;
 
-		case SDLK_KP_MINUS:
-		case SDLK_MINUS:
-			frame_delay++;
-			break;
-
-		case SDLK_KP_PLUS:
-		case SDLK_PLUS:
-			frame_delay--;
-			if (frame_delay < 1)
-				frame_delay = 1;
-			break;
-
 		case SDLK_f:
 			options ^= OPT_FRAMECOUNTER;
 			break;
@@ -757,6 +754,7 @@ SDL_Event event;
 
 			case SDL_WINDOWEVENT_RESIZED:
 				debug("RESIZED");
+				/* FIXME deal with resize */
 				break;
 
 			case SDL_WINDOWEVENT_FOCUS_LOST:
