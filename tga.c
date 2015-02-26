@@ -320,7 +320,7 @@ unsigned char color, alpha, packet_header, *ptr = tga->pixels;
 }
 
 
-TGA *load_tga(char *filename) {
+TGA *load_tga(const char *filename) {
 TGA *tga;
 TGA_Header header;
 unsigned char palette[256 * 3];

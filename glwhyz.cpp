@@ -136,7 +136,7 @@ Uint64 framecount_timer;
 Uint64 last_time;
 
 
-void debug(char *fmt, ...) {
+void debug(const char *fmt, ...) {
 #ifdef DEBUG
 	va_list ap;
 
@@ -709,6 +709,8 @@ void window_event(int event) {
 }
 
 void handle_keypress(int key) {
+	int flags = 0;
+
 	switch(key) {
 		case SDLK_ESCAPE:
 			exit_program(0);
@@ -742,7 +744,7 @@ void handle_keypress(int key) {
 				// doesn't work; can't set window size; SDL bug?
 				break;
 			}
-			int flags = SDL_GetWindowFlags(main_window);
+			flags = SDL_GetWindowFlags(main_window);
 			if (flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_FULLSCREEN_DESKTOP)) {
 				SDL_SetWindowFullscreen(main_window, 0);
 				screen_w = (float)SCREEN_WIDTH;
@@ -800,7 +802,7 @@ void handle_events(void) {
 	}
 }
 
-int load_texture(char *filename, GLuint ident) {
+int load_texture(const char *filename, GLuint ident) {
 	debug("load_texture(%s, %u)", filename, ident);
 
 	TGA *tga;
@@ -842,7 +844,7 @@ int load_texture(char *filename, GLuint ident) {
 	return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
 	printf("glWHYz! demo " VERSION " - Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>\n");
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {

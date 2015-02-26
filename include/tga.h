@@ -11,8 +11,16 @@ typedef struct {
 } TGA;
 
 
-TGA *load_tga(char *);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+TGA *load_tga(const char *);
 void free_tga(TGA *);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif	/* TGA_H_WJ108 */
 
