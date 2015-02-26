@@ -22,9 +22,6 @@
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-#define FPS					30
-#define FRAME_DELAY			(1000/FPS)
-
 #define IMG_FG				"images/glwhyz.tga"
 #define IMG_BG				"images/smile.tga"
 #define IMG_COPYRIGHT		"images/copyright.tga"
@@ -44,6 +41,8 @@
 #define SCROLLER_WIDTH		((GLfloat)SCREEN_WIDTH)
 #define SCROLLER_HEIGHT		16.0f
 #define SCROLLER_SPEED		10.0f
+#define SCROLLER_SCALE_X	0.5f
+#define SCROLLER_SCALE_Y	1.25f
 
 // rotating background
 #define ROTATE_SPEED		120.0f
@@ -99,11 +98,11 @@ SDL_GLContext glcontext;
 
 const char *title = "glWHYz - WJ107/WJ115";
 
-int options = 0;	// OPT_FULLSCREEN;
+int options = OPT_FRAMECOUNTER;	// OPT_FULLSCREEN;
 
 float screen_w = (float)SCREEN_WIDTH;
 float screen_h = (float)SCREEN_HEIGHT;
-// FIXME camera does nothing, really
+// camera does nothing, really
 float cam_x = 0.0f, cam_y = 0.0f;
 
 /*
@@ -113,13 +112,10 @@ float cam_x = 0.0f, cam_y = 0.0f;
 	* texture_vertex holds the texture coordinates
 */
 // FIXME these should be part of Wave, really
-Vertex org_vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
+Vertex org_vertex[NUM_VERTEX], vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX];
 
 GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// wave table with offsets
 float background_angle = 0.0f;		// rotation of background (green smiley)
-
-// FIXME remove ticks
-Uint32 ticks;
 
 GLuint textures[NUM_TEXTURES];				// GL texture identifiers
 
@@ -133,6 +129,11 @@ Scroller scroller = {
 };
 
 Particle particles[NUM_PARTICLES];
+
+float perf_freq;
+int framecount = 0;
+Uint64 framecount_timer;
+Uint64 last_time;
 
 
 void debug(char *fmt, ...) {
@@ -274,11 +275,13 @@ void draw_scroller(void) {
 		// if the angle is 0, put the scroller below in the screen
 		glTranslatef(scroller.x, -(GLfloat)SCREEN_HEIGHT * 0.5f + SCROLLER_HEIGHT, 0.0f);
 	}
-	glScalef(0.5f, 1.25f, 1.0f);	// FIXME hardcoded scaling factors ...
+	glScalef(SCROLLER_SCALE_X, SCROLLER_SCALE_Y, 1.0f);
 
 	if (options & OPT_WIREFRAME) {
 		glColor3ub(0xff, 0, 0xff);
 	}
+	// scroller text is an image texture
+	// could have been TTF font rendering ...
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_COPYRIGHT]);
 
 	const GLfloat vertex_arr[8] = { 
@@ -474,16 +477,12 @@ void create_window(int w, int h) {
 }
 
 void count_framerate(void) {
-	static int fps = 0;		// FIXME get rid of static
-
-	fps++;
-
-	Uint32 new_ticks = SDL_GetTicks();
-
-	if (new_ticks - ticks >= 1000) {
-		printf("%d FPS\n", fps);
-		fps = 0;
-		ticks = new_ticks;
+	framecount++;
+	if (framecount > 100) {
+		Uint64 now = SDL_GetPerformanceCounter();
+		printf("FPS %.1f\n", (float)framecount / ((now - framecount_timer) / perf_freq));
+		framecount_timer = now;
+		framecount = 0;
 	}
 }
 
@@ -586,16 +585,16 @@ void move_scroller(float timestep) {
 	if ((scroller.x + SCROLLER_WIDTH + SCROLLER_WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
 		|| scroller.x > SCREEN_WIDTH * 0.5f + SCROLLER_WIDTH * 0.25f) {
 		scroller.x = (GLfloat)SCREEN_WIDTH * 0.5f;
-		scroller.angle = (GLfloat)(rand() % 180 - 90);
+		scroller.angle = (GLfloat)(random() % 180 - 90);
 		scroller.direction = -SCROLLER_SPEED;
 
-		if (rand() & 1) {
+		if (random() & 1) {
 			scroller.direction = -scroller.direction;
 			scroller.x = -scroller.x;
 			scroller.x -= SCROLLER_WIDTH;
 		}
 		// set a new scroller depth, do not choose the same depth twice in a row
-		int new_depth = rand() % 2;
+		int new_depth = random() % 2;
 		if (scroller.depth == new_depth) {
 			new_depth++;
 			new_depth %= 2;
@@ -610,11 +609,11 @@ void init_particle(int n) {
 		allowing them to start far off the screen is my way of spreading them out better
 		it's not perfect, but it works somewhat
 	*/
-	particles[n].x = rand() % (SCREEN_WIDTH - PARTICLE_W);
-	particles[n].y = SCREEN_HEIGHT + PARTICLE_H + (rand() % SCREEN_HEIGHT);
-	particles[n].speed = (rand() % 5) + 5.0f;
-	particles[n].drift = (rand() % 5) * 0.5f - 1.0f;
-	particles[n].depth = rand() % 6;
+	particles[n].x = random() % (SCREEN_WIDTH - PARTICLE_W);
+	particles[n].y = SCREEN_HEIGHT + PARTICLE_H + (random() % SCREEN_HEIGHT);
+	particles[n].speed = (random() % 5) + 5.0f;
+	particles[n].drift = (random() % 5) * 0.5f - 1.0f;
+	particles[n].depth = random() % 6;
 	particles[n].speed = particles[n].depth * 0.5f + 1.0f;	// speed based on depth
 }
 
@@ -670,7 +669,13 @@ void window_event(int event) {
 
 		case SDL_WINDOWEVENT_SHOWN:
 			debug("SHOWN");
+			options &= ~OPT_PAUSED;
 			draw_screen();
+			break;
+
+		case SDL_WINDOWEVENT_HIDDEN:
+			debug("HIDDEN");
+			options |= OPT_PAUSED;
 			break;
 
 		case SDL_WINDOWEVENT_EXPOSED:
@@ -690,7 +695,12 @@ void window_event(int event) {
 
 		case SDL_WINDOWEVENT_FOCUS_LOST:
 			debug("FOCUS_LOST");
-			SDL_WaitEvent(NULL);	// freeze it
+			options |= OPT_PAUSED;
+			break;
+
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			debug("FOCUS_GAINED");
+			options &= ~OPT_PAUSED;
 			break;
 
 		default:
@@ -763,10 +773,16 @@ void handle_keyrelease(int key) {
 void handle_events(void) {
 	SDL_Event event;
 
+	if (options & OPT_PAUSED) {
+		SDL_WaitEvent(NULL);
+
+		// reset time
+		last_time = SDL_GetPerformanceCounter();
+	}
+
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
 			case SDL_WINDOWEVENT:
-				debug("WINDOWEVENT");
 				window_event(event.window.event);
 				break;
 
@@ -846,12 +862,11 @@ int main(int argc, char *argv[]) {
 	init_wave();
 	init_particles();
 
-	srand(time(NULL));
+	srandom(time(NULL));
 
-	ticks = SDL_GetTicks();
-	const float perf_freq = (float)SDL_GetPerformanceFrequency();
+	perf_freq = SDL_GetPerformanceFrequency();
 	debug("perf_freq: %f", perf_freq);
-	Uint64 last_time = SDL_GetPerformanceCounter();
+	last_time = framecount_timer = SDL_GetPerformanceCounter();
 	draw_screen();
 	for(;;) {
 		handle_events();
