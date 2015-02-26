@@ -25,11 +25,6 @@ using namespace std;
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-#define TEXTURE_FG			0
-#define TEXTURE_BG			1
-#define TEXTURE_COPYRIGHT	2
-#define TEXTURE_PARTICLE	3
-
 // how dramatic is the wave
 #define WAVE_SCALE			30.0f
 // the wave effect is too fast, WAVE_DELAY is a "frame skip" parameter
@@ -71,10 +66,10 @@ using namespace std;
 
 class TextureMgr {
 public:
-	const int TEX_WAVE = 0;
-	const int TEX_SMILEY = 1;
-	const int TEX_SCROLLER = 2;
-	const int TEX_BUBBLE = 3;
+	static const int TEX_WAVE = 0;
+	static const int TEX_SMILEY = 1;
+	static const int TEX_SCROLLER = 2;
+	static const int TEX_BUBBLE = 3;
 
 	TextureMgr() : num_textures(0), textures(nullptr) { }
 	~TextureMgr() {
@@ -379,7 +374,7 @@ void Wave::draw(void) {
 		glColor3ub(0xff, 0xff, 0);
 	}
 	// FIXME texture_idx member
-	texmgr.glbind(TEXTURE_FG);
+	texmgr.glbind(TextureMgr::TEX_WAVE);
 
 	GLfloat vertex_arr[(DIM_W+1) * 4];
 	GLfloat tex_arr[(DIM_W+1) * 4];
@@ -450,7 +445,7 @@ void Spinner::draw(void) {
 	} else {
 		glColor3f(1.0f, 1.0f, 1.0f);
 	}
-	texmgr.glbind(TEXTURE_BG);
+	texmgr.glbind(TextureMgr::TEX_SMILEY);
 
 	const GLfloat vertex_arr[8] = { 
 		-1, 1,
@@ -538,7 +533,7 @@ void Scroller::draw(void) {
 	}
 	// scroller text is an image texture
 	// could have been TTF font rendering ...
-	texmgr.glbind(TEXTURE_COPYRIGHT);
+	texmgr.glbind(TextureMgr::TEX_SCROLLER);
 
 	const GLfloat vertex_arr[8] = { 
 		0, SCROLLER_HEIGHT,
@@ -646,7 +641,7 @@ void ParticleSystem::draw(int depth) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 	}
-	texmgr.glbind(TEXTURE_PARTICLE);
+	texmgr.glbind(TextureMgr::TEX_BUBBLE);
 
 	const GLfloat tex_arr[8] = {
 		0, 0,
