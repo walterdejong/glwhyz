@@ -78,6 +78,16 @@ typedef struct {
 typedef struct {
 	int xt, yt;
 	float xtime, ytime;
+/*
+	used for the wave effect:
+	* org_vertex holds a large square that has been subdivided into small triangles
+	* vertex holds the manipulated triangles, this is what is being drawn
+	* texture_vertex holds the texture coordinates
+*/
+	Vertex org_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
+	Vertex texture_vertex[NUM_VERTEX];
+
+	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
 } Wave;
 
 typedef struct {
@@ -98,23 +108,13 @@ SDL_GLContext glcontext;
 
 const char *title = "glWHYz - WJ107/WJ115";
 
-int options = OPT_FRAMECOUNTER;	// OPT_FULLSCREEN;
+int options = 0;	// OPT_FULLSCREEN;
 
 float screen_w = (float)SCREEN_WIDTH;
 float screen_h = (float)SCREEN_HEIGHT;
 // camera does nothing, really
 float cam_x = 0.0f, cam_y = 0.0f;
 
-/*
-	used for the wave effect:
-	* org_vertex holds a large square that has been subdivided into small triangles
-	* vertex holds the manipulated triangles, this is what is being drawn
-	* texture_vertex holds the texture coordinates
-*/
-// FIXME these should be part of Wave, really
-Vertex org_vertex[NUM_VERTEX], vertex[NUM_VERTEX], texture_vertex[NUM_VERTEX];
-
-GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// wave table with offsets
 float background_angle = 0.0f;		// rotation of background (green smiley)
 
 GLuint textures[NUM_TEXTURES];				// GL texture identifiers
@@ -184,30 +184,30 @@ void draw_wave(void) {
 		n = 0;
 		v = j * (DIM_W+1);
 
-		tex_arr[n] = texture_vertex[v].x;
-		vertex_arr[n++] = vertex[v].x;
+		tex_arr[n] = wave.texture_vertex[v].x;
+		vertex_arr[n++] = wave.vertex[v].x;
 
-		tex_arr[n] = texture_vertex[v].y;
-		vertex_arr[n++] = vertex[v].y;
+		tex_arr[n] = wave.texture_vertex[v].y;
+		vertex_arr[n++] = wave.vertex[v].y;
 
-		tex_arr[n] = texture_vertex[v+DIM_W+1].x;
-		vertex_arr[n++] = vertex[v+DIM_W+1].x;
+		tex_arr[n] = wave.texture_vertex[v+DIM_W+1].x;
+		vertex_arr[n++] = wave.vertex[v+DIM_W+1].x;
 
-		tex_arr[n] = texture_vertex[v+DIM_W+1].y;
-		vertex_arr[n++] = vertex[v+DIM_W+1].y;
+		tex_arr[n] = wave.texture_vertex[v+DIM_W+1].y;
+		vertex_arr[n++] = wave.vertex[v+DIM_W+1].y;
 
 		for(int i = 0; i < DIM_W; i++) {
-			tex_arr[n] = texture_vertex[v+1].x;
-			vertex_arr[n++] = vertex[v+1].x;
+			tex_arr[n] = wave.texture_vertex[v+1].x;
+			vertex_arr[n++] = wave.vertex[v+1].x;
 
-			tex_arr[n] = texture_vertex[v+1].y;
-			vertex_arr[n++] = vertex[v+1].y;
+			tex_arr[n] = wave.texture_vertex[v+1].y;
+			vertex_arr[n++] = wave.vertex[v+1].y;
 
-			tex_arr[n] = texture_vertex[v+DIM_W+2].x;
-			vertex_arr[n++] = vertex[v+DIM_W+2].x;
+			tex_arr[n] = wave.texture_vertex[v+DIM_W+2].x;
+			vertex_arr[n++] = wave.vertex[v+DIM_W+2].x;
 
-			tex_arr[n] = texture_vertex[v+DIM_W+2].y;
-			vertex_arr[n++] = vertex[v+DIM_W+2].y;
+			tex_arr[n] = wave.texture_vertex[v+DIM_W+2].y;
+			vertex_arr[n++] = wave.vertex[v+DIM_W+2].y;
 
 			v++;
 		}
@@ -491,10 +491,10 @@ void init_wave(void) {
 	// set coordinates for polygons and for texturing
 	for(int j = 0, n = 0; j < DIM_H+1; j++) {
 		for(int i = 0; i < DIM_W+1; i++) {
-			org_vertex[n].x = i * QUAD_W;
-			org_vertex[n].y = j * QUAD_H;
-			texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
-			texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
+			wave.org_vertex[n].x = i * QUAD_W;
+			wave.org_vertex[n].y = j * QUAD_H;
+			wave.texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
+			wave.texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
 			n++;
 		}
 	}
@@ -502,12 +502,12 @@ void init_wave(void) {
 	for(int n = 0; n < DIM_W+1; n++) {
 		double val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
 		double d = sin(val*2) + cos(val)/2.0;
-		x_offsets[n] = WAVE_SCALE * d;
+		wave.x_offsets[n] = WAVE_SCALE * d;
 	}
 	for(int n = 0; n < DIM_H+1; n++) {
 		double val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
 		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
-		y_offsets[n] = WAVE_SCALE * d;
+		wave.y_offsets[n] = WAVE_SCALE * d;
 	}
 	wave.xt = wave.yt = 0;
 }
@@ -524,12 +524,12 @@ void animate_wave(float timestep) {
 		return;
 	}
 	// update wave vertices
-	memcpy(vertex, org_vertex, sizeof(Vertex) * NUM_VERTEX);
+	memcpy(wave.vertex, wave.org_vertex, sizeof(Vertex) * NUM_VERTEX);
 
 	for(int j = 0, n = 0; j < DIM_H+1; j++) {
 		for(int i = 0; i < DIM_W+1; i++) {
-			vertex[n].x += x_offsets[wave.xt];
-			vertex[n].y += y_offsets[wave.yt];
+			wave.vertex[n].x += wave.x_offsets[wave.xt];
+			wave.vertex[n].y += wave.y_offsets[wave.yt];
 			wave.yt++;
 			if (wave.yt >= DIM_H+1) {
 				wave.yt = 0;
