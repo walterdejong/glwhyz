@@ -71,11 +71,11 @@
 #define OPT_FRAMECOUNTER	4
 #define OPT_FULLSCREEN		8
 
-typedef struct {
+struct Vertex {
 	GLfloat x, y;
-} Vertex;
+};
 
-typedef struct {
+class Wave {
 	int xt, yt;
 	float xtime, ytime;
 /*
@@ -88,7 +88,12 @@ typedef struct {
 	Vertex texture_vertex[NUM_VERTEX];
 
 	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
-} Wave;
+
+public:
+	void init(void);
+	void animate(float);
+	void draw(void);
+};
 
 typedef struct {
 	GLfloat x;
@@ -160,18 +165,89 @@ void exit_program(int exit_code) {
 	exit(exit_code);
 }
 
+//	define vertices and set wave table values
+void Wave::init(void) {
+	// set coordinates for polygons and for texturing
+	for(int j = 0, n = 0; j < DIM_H+1; j++) {
+		for(int i = 0; i < DIM_W+1; i++) {
+			org_vertex[n].x = i * QUAD_W;
+			org_vertex[n].y = j * QUAD_H;
+			texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
+			texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
+			n++;
+		}
+	}
+	// initialize wave tables
+	for(int n = 0; n < DIM_W+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
+		double d = sin(val*2) + cos(val)/2.0;
+		x_offsets[n] = WAVE_SCALE * d;
+	}
+	for(int n = 0; n < DIM_H+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
+		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
+		y_offsets[n] = WAVE_SCALE * d;
+	}
+	xt = yt = 0;
+}
+
+//	on every frame, add wave table values to the coordinates of the triangles
+void Wave::animate(float timestep) {
+	if (timestep <= 0.001f) {
+		return;
+	}
+	// update wave vertices
+	memcpy(vertex, org_vertex, sizeof(Vertex) * NUM_VERTEX);
+
+	for(int j = 0, n = 0; j < DIM_H+1; j++) {
+		for(int i = 0; i < DIM_W+1; i++) {
+			vertex[n].x += x_offsets[wave.xt];
+			vertex[n].y += y_offsets[wave.yt];
+			yt++;
+			if (yt >= DIM_H+1) {
+				yt = 0;
+			}
+			n++;
+		}
+		xt++;
+		if (xt >= DIM_W+1) {
+			xt = 0;
+		}
+	}
+
+	/* this steers the wavy animation */
+	xtime += timestep * WAVE_SPEED;
+	if (xtime >= 1.0f) {
+		xtime -= 1.0f;
+		xt++;
+		if (xt >= DIM_W+1) {
+			xt = 0;
+		}
+	}
+	ytime += timestep * WAVE_SPEED;
+	if (ytime >= 1.0f) {
+		ytime -= 1.0f;
+		yt++;
+		if (yt >= DIM_H+1) {
+			yt = 0;
+		}
+	}
+}
+
 // draw the wavy object
-void draw_wave(void) {
+void Wave::draw(void) {
 	glPushMatrix();
 
+	// FIXME translate(x, y, 0)
 	// center it
 	glTranslatef(DIM_X - DIM_X * 0.1f, 0.0, 0.0f);
 	// make reasonable size
-	glScalef(2.0f, 2.0f, 1.0f);
+	glScalef(2.0f, 2.0f, 1.0f);		// FIXME scaling parameter
 
 	if (options & OPT_WIREFRAME) {
 		glColor3ub(0xff, 0xff, 0);
 	}
+	// FIXME texture_idx member
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_FG]);
 
 	GLfloat vertex_arr[(DIM_W+1) * 4];
@@ -184,30 +260,30 @@ void draw_wave(void) {
 		n = 0;
 		v = j * (DIM_W+1);
 
-		tex_arr[n] = wave.texture_vertex[v].x;
-		vertex_arr[n++] = wave.vertex[v].x;
+		tex_arr[n] = texture_vertex[v].x;
+		vertex_arr[n++] = vertex[v].x;
 
-		tex_arr[n] = wave.texture_vertex[v].y;
-		vertex_arr[n++] = wave.vertex[v].y;
+		tex_arr[n] = texture_vertex[v].y;
+		vertex_arr[n++] = vertex[v].y;
 
-		tex_arr[n] = wave.texture_vertex[v+DIM_W+1].x;
-		vertex_arr[n++] = wave.vertex[v+DIM_W+1].x;
+		tex_arr[n] = texture_vertex[v+DIM_W+1].x;
+		vertex_arr[n++] = vertex[v+DIM_W+1].x;
 
-		tex_arr[n] = wave.texture_vertex[v+DIM_W+1].y;
-		vertex_arr[n++] = wave.vertex[v+DIM_W+1].y;
+		tex_arr[n] = texture_vertex[v+DIM_W+1].y;
+		vertex_arr[n++] = vertex[v+DIM_W+1].y;
 
 		for(int i = 0; i < DIM_W; i++) {
-			tex_arr[n] = wave.texture_vertex[v+1].x;
-			vertex_arr[n++] = wave.vertex[v+1].x;
+			tex_arr[n] = texture_vertex[v+1].x;
+			vertex_arr[n++] = vertex[v+1].x;
 
-			tex_arr[n] = wave.texture_vertex[v+1].y;
-			vertex_arr[n++] = wave.vertex[v+1].y;
+			tex_arr[n] = texture_vertex[v+1].y;
+			vertex_arr[n++] = vertex[v+1].y;
 
-			tex_arr[n] = wave.texture_vertex[v+DIM_W+2].x;
-			vertex_arr[n++] = wave.vertex[v+DIM_W+2].x;
+			tex_arr[n] = texture_vertex[v+DIM_W+2].x;
+			vertex_arr[n++] = vertex[v+DIM_W+2].x;
 
-			tex_arr[n] = wave.texture_vertex[v+DIM_W+2].y;
-			vertex_arr[n++] = wave.vertex[v+DIM_W+2].y;
+			tex_arr[n] = texture_vertex[v+DIM_W+2].y;
+			vertex_arr[n++] = vertex[v+DIM_W+2].y;
 
 			v++;
 		}
@@ -387,7 +463,7 @@ void draw_scene(void) {
 	}
 	draw_particles(3);
 
-	draw_wave();
+	wave.draw();
 
 	draw_particles(4);
 
@@ -486,78 +562,9 @@ void count_framerate(void) {
 	}
 }
 
-//	define vertices and set wave table values
-void init_wave(void) {
-	// set coordinates for polygons and for texturing
-	for(int j = 0, n = 0; j < DIM_H+1; j++) {
-		for(int i = 0; i < DIM_W+1; i++) {
-			wave.org_vertex[n].x = i * QUAD_W;
-			wave.org_vertex[n].y = j * QUAD_H;
-			wave.texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
-			wave.texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
-			n++;
-		}
-	}
-	// initialize wave tables
-	for(int n = 0; n < DIM_W+1; n++) {
-		double val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
-		double d = sin(val*2) + cos(val)/2.0;
-		wave.x_offsets[n] = WAVE_SCALE * d;
-	}
-	for(int n = 0; n < DIM_H+1; n++) {
-		double val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
-		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
-		wave.y_offsets[n] = WAVE_SCALE * d;
-	}
-	wave.xt = wave.yt = 0;
-}
-
 void init_particles(void) {
 	for(int n = 0; n < NUM_PARTICLES; n++) {
 		particles[n].depth = PARTICLE_DEAD;
-	}
-}
-
-//	on every frame, add wave table values to the coordinates of the triangles
-void animate_wave(float timestep) {
-	if (timestep <= 0.001f) {
-		return;
-	}
-	// update wave vertices
-	memcpy(wave.vertex, wave.org_vertex, sizeof(Vertex) * NUM_VERTEX);
-
-	for(int j = 0, n = 0; j < DIM_H+1; j++) {
-		for(int i = 0; i < DIM_W+1; i++) {
-			wave.vertex[n].x += wave.x_offsets[wave.xt];
-			wave.vertex[n].y += wave.y_offsets[wave.yt];
-			wave.yt++;
-			if (wave.yt >= DIM_H+1) {
-				wave.yt = 0;
-			}
-			n++;
-		}
-		wave.xt++;
-		if (wave.xt >= DIM_W+1) {
-			wave.xt = 0;
-		}
-	}
-
-	/* this steers the wavy animation */
-	wave.xtime += timestep * WAVE_SPEED;
-	if (wave.xtime >= 1.0f) {
-		wave.xtime -= 1.0f;
-		wave.xt++;
-		if (wave.xt >= DIM_W+1) {
-			wave.xt = 0;
-		}
-	}
-	wave.ytime += timestep * WAVE_SPEED;
-	if (wave.ytime >= 1.0f) {
-		wave.ytime -= 1.0f;
-		wave.yt++;
-		if (wave.yt >= DIM_H+1) {
-			wave.yt = 0;
-		}
 	}
 }
 
@@ -861,7 +868,7 @@ int main(int argc, const char *argv[]) {
 		load_texture(IMG_PARTICLE, textures[TEXTURE_PARTICLE])) {
 		exit_program(-1);
 	}
-	init_wave();
+	wave.init();
 	init_particles();
 
 	srandom(time(NULL));
@@ -878,7 +885,7 @@ int main(int argc, const char *argv[]) {
 //		debug("timestep %f", timestep);
 
 		if (!(options & OPT_PAUSED)) {
-			animate_wave(timestep);
+			wave.animate(timestep);
 			rotate_background(timestep);
 			move_particles(timestep);
 			move_scroller(timestep);
