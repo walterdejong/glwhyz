@@ -8,7 +8,7 @@ CC = clang
 INCLUDE = include `sdl2-config --cflags` \
 	-I/System/Library/Frameworks/OpenGL.framework/Headers
 
-CFLAGS = -g -Wall -I$(INCLUDE)
+CFLAGS = -g -Wall -std=c99 -I$(INCLUDE)
 LIB_OPTS = `sdl2-config --libs` -lm -framework OpenGL
 EXECNAME = glwhyz
 
@@ -43,6 +43,6 @@ mrproper: clean
 	touch .depend
 
 depend dep .depend:
-	$(CC) -M -I$(INCLUDE) $(CFILES) > .depend
+	$(CC) -M -std=c99 -I$(INCLUDE) $(CFILES) > .depend
 
 # EOB
