@@ -95,12 +95,19 @@ public:
 	void draw(void);
 };
 
-typedef struct {
+// copyright scroller
+class Scroller {
 	GLfloat x;
 	GLfloat direction;
 	GLfloat angle;
-	int depth;			// the scroller can "move" between layers
-} Scroller;
+
+public:
+	int depth;		// the scroller can "move" between layers
+
+	void init(void);
+	void move(float);
+	void draw(void);
+};
 
 // (simple) particles
 typedef struct {
@@ -125,14 +132,7 @@ float background_angle = 0.0f;		// rotation of background (green smiley)
 GLuint textures[NUM_TEXTURES];				// GL texture identifiers
 
 Wave wave;
-
-Scroller scroller = {
-	.x = SCREEN_WIDTH * 0.5f,
-	.direction = -SCROLLER_SPEED,
-	.angle = 0.0f,
-	.depth = 2		// the scroller can "move" between layers
-};
-
+Scroller scroller;
 Particle particles[NUM_PARTICLES];
 
 float perf_freq;
@@ -292,6 +292,98 @@ void Wave::draw(void) {
 	glPopMatrix();
 }
 
+void Scroller::init(void) {
+	x = SCREEN_WIDTH * 0.5f,
+	direction = -SCROLLER_SPEED,
+	angle = 0.0f,
+	depth = 2;		// the scroller can "move" between layers
+}
+
+void Scroller::move(float timestep) {
+	if (timestep <= 0.001f) {
+		return;
+	}
+	if (options & OPT_PAUSED) {
+		return;
+	}
+	x += direction * timestep * SCROLLER_SPEED;
+
+	// when the scroller goes off-screen, restart it under an angle
+	if ((x + SCROLLER_WIDTH + SCROLLER_WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
+		|| x > SCREEN_WIDTH * 0.5f + SCROLLER_WIDTH * 0.25f) {
+		x = (GLfloat)SCREEN_WIDTH * 0.5f;
+		angle = (GLfloat)(random() % 180 - 90);
+		direction = -SCROLLER_SPEED;
+
+		if (random() & 1) {
+			direction = -direction;
+			x = -x;
+			x -= SCROLLER_WIDTH;
+		}
+		// set a new scroller depth, do not choose the same depth twice in a row
+		int new_depth = random() % 2;
+		if (depth == new_depth) {
+			new_depth++;
+			new_depth %= 2;
+		}
+		depth = new_depth;
+	}
+}
+
+void Scroller::draw(void) {
+	// set coordinate system to center of the screen
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();						// save old coordinate system
+	glLoadIdentity();
+	glOrtho(-SCREEN_WIDTH * 0.5, SCREEN_WIDTH * 0.5, -SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT * 0.5, -1.0, 1.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	// the scroller is under an angle
+	if (angle > 0.01f) {
+		glRotatef(angle, 0.0f, 0.0f, 1.0f);
+		glTranslatef(x, 0.0f, 0.0f);
+	} else {
+		// if the angle is 0, put the scroller below in the screen
+		glTranslatef(x, -(GLfloat)SCREEN_HEIGHT * 0.5f + SCROLLER_HEIGHT, 0.0f);
+	}
+	glScalef(SCROLLER_SCALE_X, SCROLLER_SCALE_Y, 1.0f);
+
+	if (options & OPT_WIREFRAME) {
+		glColor3ub(0xff, 0, 0xff);
+	}
+	// scroller text is an image texture
+	// could have been TTF font rendering ...
+	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_COPYRIGHT]);
+
+	const GLfloat vertex_arr[8] = { 
+		0, SCROLLER_HEIGHT,
+		0, 0,
+		SCROLLER_WIDTH, SCROLLER_HEIGHT,
+		SCROLLER_WIDTH, 0
+	};
+
+	const GLfloat tex_arr[8] = {
+		0, 0,
+		0, 1,
+		1, 0,
+		1, 1
+	};
+
+	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
+	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	// restore coordinate system
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+}
+
 // draw a spinning background
 void draw_background(void) {
 	glPushMatrix();
@@ -329,60 +421,6 @@ void draw_background(void) {
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-	glPopMatrix();
-}
-
-void draw_scroller(void) {
-	// set coordinate system to center of the screen
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();						// save old coordinate system
-	glLoadIdentity();
-	glOrtho(-SCREEN_WIDTH * 0.5, SCREEN_WIDTH * 0.5, -SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT * 0.5, -1.0, 1.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	glLoadIdentity();
-
-	// the scroller is under an angle
-	if (scroller.angle > 0.01f) {
-		glRotatef(scroller.angle, 0.0f, 0.0f, 1.0f);
-		glTranslatef(scroller.x, 0.0f, 0.0f);
-	} else {
-		// if the angle is 0, put the scroller below in the screen
-		glTranslatef(scroller.x, -(GLfloat)SCREEN_HEIGHT * 0.5f + SCROLLER_HEIGHT, 0.0f);
-	}
-	glScalef(SCROLLER_SCALE_X, SCROLLER_SCALE_Y, 1.0f);
-
-	if (options & OPT_WIREFRAME) {
-		glColor3ub(0xff, 0, 0xff);
-	}
-	// scroller text is an image texture
-	// could have been TTF font rendering ...
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_COPYRIGHT]);
-
-	const GLfloat vertex_arr[8] = { 
-		0, SCROLLER_HEIGHT,
-		0, 0,
-		SCROLLER_WIDTH, SCROLLER_HEIGHT,
-		SCROLLER_WIDTH, 0
-	};
-
-	const GLfloat tex_arr[8] = {
-		0, 0,
-		0, 1,
-		1, 0,
-		1, 1
-	};
-
-	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
-	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
-
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-	// restore coordinate system
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
 }
 
@@ -450,7 +488,7 @@ void draw_scene(void) {
 	draw_particles(0);
 
 	if (!scroller.depth) {
-		draw_scroller();
+		scroller.draw();
 	}
 	draw_particles(1);
 
@@ -459,7 +497,7 @@ void draw_scene(void) {
 	draw_particles(2);
 
 	if (scroller.depth == 1) {
-		draw_scroller();
+		scroller.draw();
 	}
 	draw_particles(3);
 
@@ -468,7 +506,7 @@ void draw_scene(void) {
 	draw_particles(4);
 
 	if (scroller.depth == 2) {
-		draw_scroller();
+		scroller.draw();
 	}
 	draw_particles(5);
 }
@@ -576,37 +614,6 @@ void rotate_background(float timestep) {
 		background_angle += ROTATE_SPEED * timestep;	// rotate
 		if (background_angle >= 360.0f)
 			background_angle -= 360.0f;
-	}
-}
-
-void move_scroller(float timestep) {
-	if (timestep <= 0.001f) {
-		return;
-	}
-	if (options & OPT_PAUSED) {
-		return;
-	}
-	scroller.x += scroller.direction * timestep * SCROLLER_SPEED;
-
-	// when the scroller goes off-screen, restart it under an angle
-	if ((scroller.x + SCROLLER_WIDTH + SCROLLER_WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
-		|| scroller.x > SCREEN_WIDTH * 0.5f + SCROLLER_WIDTH * 0.25f) {
-		scroller.x = (GLfloat)SCREEN_WIDTH * 0.5f;
-		scroller.angle = (GLfloat)(random() % 180 - 90);
-		scroller.direction = -SCROLLER_SPEED;
-
-		if (random() & 1) {
-			scroller.direction = -scroller.direction;
-			scroller.x = -scroller.x;
-			scroller.x -= SCROLLER_WIDTH;
-		}
-		// set a new scroller depth, do not choose the same depth twice in a row
-		int new_depth = random() % 2;
-		if (scroller.depth == new_depth) {
-			new_depth++;
-			new_depth %= 2;
-		}
-		scroller.depth = new_depth;
 	}
 }
 
@@ -869,6 +876,7 @@ int main(int argc, const char *argv[]) {
 		exit_program(-1);
 	}
 	wave.init();
+	scroller.init();
 	init_particles();
 
 	srandom(time(NULL));
@@ -888,7 +896,7 @@ int main(int argc, const char *argv[]) {
 			wave.animate(timestep);
 			rotate_background(timestep);
 			move_particles(timestep);
-			move_scroller(timestep);
+			scroller.move(timestep);
 		}
 		draw_screen();
 
