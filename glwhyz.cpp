@@ -7,11 +7,14 @@
 #include <SDL.h>
 #include <gl.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <time.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdarg>
+#include <ctime>
+#include <cmath>
+#include <cassert>
+
+using namespace std;
 
 // enable debug printing
 //#define DEBUG	1
@@ -22,15 +25,10 @@
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-#define IMG_FG				"images/glwhyz.tga"
-#define IMG_BG				"images/smile.tga"
-#define IMG_COPYRIGHT		"images/copyright.tga"
-#define IMG_PARTICLE		"images/bubble.tga"
 #define TEXTURE_FG			0
 #define TEXTURE_BG			1
 #define TEXTURE_COPYRIGHT	2
 #define TEXTURE_PARTICLE	3
-#define NUM_TEXTURES		4
 
 // how dramatic is the wave
 #define WAVE_SCALE			30.0f
@@ -70,6 +68,31 @@
 #define OPT_PAUSED			2
 #define OPT_FRAMECOUNTER	4
 #define OPT_FULLSCREEN		8
+
+class TextureMgr {
+public:
+	const int TEX_WAVE = 0;
+	const int TEX_SMILEY = 1;
+	const int TEX_SCROLLER = 2;
+	const int TEX_BUBBLE = 3;
+
+	TextureMgr() : num_textures(0), textures(nullptr) { }
+	~TextureMgr() {
+		if (textures != nullptr) {
+			delete [] textures;
+			textures = nullptr;
+		}
+	}
+
+	bool load(int, const char **);
+	void glbind(int);
+
+private:
+	GLsizei num_textures;
+	GLuint *textures;	// GL texture identifiers
+
+	bool load_texture(const char *, int);
+};
 
 struct Vertex {
 	GLfloat x, y;
@@ -155,7 +178,13 @@ float screen_h = (float)SCREEN_HEIGHT;
 // camera does nothing, really
 float cam_x = 0.0f, cam_y = 0.0f;
 
-GLuint textures[NUM_TEXTURES];				// GL texture identifiers
+TextureMgr texmgr;
+const char *texture_filenames[] = {
+	"images/glwhyz.tga",
+	"images/smile.tga",
+	"images/copyright.tga",
+	"images/bubble.tga",
+};
 
 Wave wave;
 Spinner spinner;
@@ -190,6 +219,82 @@ void exit_program(int exit_code) {
 	}
 	SDL_Quit();
 	exit(exit_code);
+}
+
+bool TextureMgr::load(int num, const char **filenames) {
+	assert(num > 0);
+	assert(filenames != nullptr);
+
+	textures = new GLuint[num];
+
+	glGenTextures(num, textures);
+	if (glGetError() != 0) {
+		delete [] textures;
+		textures = nullptr;
+		return false;
+	}
+	num_textures = num;
+
+	for(int i = 0; i < num_textures; i++) {
+		if (!load_texture(filenames[i], i)) {
+			// all or nothing
+			// maybe we can do better?
+			delete [] textures;
+			textures = nullptr;
+			num_textures = 0;
+			return false;
+		}
+	}
+	return true;
+}
+
+void TextureMgr::glbind(int idx) {
+	assert(idx >= 0 && idx < num_textures);
+	glBindTexture(GL_TEXTURE_2D, textures[idx]);
+}
+
+bool TextureMgr::load_texture(const char *filename, int idx) {
+	assert(filename != nullptr);
+	assert(idx >= 0 && idx < num_textures);
+
+	debug("TextureMgr::load_texture(%s, %d)", filename, idx);
+
+	TGA *tga;
+	if ((tga = load_tga(filename)) == nullptr) {
+		fprintf(stderr, "failed to load texture file '%s'\n", filename);
+		return false;
+	}
+
+	int format;
+
+	switch(tga->bytes_per_pixel) {
+/*
+	Not supported in OpenGL ES
+
+		case 1:
+			format = GL_COLOR_INDEX;
+			break;
+
+		case 3:
+			format = GL_BGR;
+			break;
+*/
+		case 4:
+			format = GL_RGBA;
+			break;
+
+		default:
+			format = -1;	// invalid
+			fprintf(stderr, "error: %s: invalid bytes per pixel: %d\n", filename, tga->bytes_per_pixel);
+			return false;
+	}
+	glbind(idx);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tga->w, tga->h, 0, format, GL_UNSIGNED_BYTE, tga->pixels);
+
+	free_tga(tga);
+	return true;
 }
 
 //	define vertices and set wave table values
@@ -274,7 +379,7 @@ void Wave::draw(void) {
 		glColor3ub(0xff, 0xff, 0);
 	}
 	// FIXME texture_idx member
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_FG]);
+	texmgr.glbind(TEXTURE_FG);
 
 	GLfloat vertex_arr[(DIM_W+1) * 4];
 	GLfloat tex_arr[(DIM_W+1) * 4];
@@ -345,7 +450,7 @@ void Spinner::draw(void) {
 	} else {
 		glColor3f(1.0f, 1.0f, 1.0f);
 	}
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_BG]);
+	texmgr.glbind(TEXTURE_BG);
 
 	const GLfloat vertex_arr[8] = { 
 		-1, 1,
@@ -433,7 +538,7 @@ void Scroller::draw(void) {
 	}
 	// scroller text is an image texture
 	// could have been TTF font rendering ...
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_COPYRIGHT]);
+	texmgr.glbind(TEXTURE_COPYRIGHT);
 
 	const GLfloat vertex_arr[8] = { 
 		0, SCROLLER_HEIGHT,
@@ -541,7 +646,7 @@ void ParticleSystem::draw(int depth) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 	}
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_PARTICLE]);
+	texmgr.glbind(TEXTURE_PARTICLE);
 
 	const GLfloat tex_arr[8] = {
 		0, 0,
@@ -842,48 +947,6 @@ void handle_events(void) {
 	}
 }
 
-int load_texture(const char *filename, GLuint ident) {
-	debug("load_texture(%s, %u)", filename, ident);
-
-	TGA *tga;
-
-	if ((tga = load_tga(filename)) == NULL) {
-		fprintf(stderr, "failed to load texture file '%s'\n", filename);
-		return -1;
-	}
-
-	int format;
-
-	switch(tga->bytes_per_pixel) {
-/*
-	Not supported in OpenGL ES
-
-		case 1:
-			format = GL_COLOR_INDEX;
-			break;
-
-		case 3:
-			format = GL_BGR;
-			break;
-*/
-		case 4:
-			format = GL_RGBA;
-			break;
-
-		default:
-			format = -1;	// invalid
-			fprintf(stderr, "error: %s: invalid bytes per pixel: %d\n", filename, tga->bytes_per_pixel);
-			return -1;
-	}
-	glBindTexture(GL_TEXTURE_2D, ident);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tga->w, tga->h, 0, format, GL_UNSIGNED_BYTE, tga->pixels);
-
-	free_tga(tga);
-	return 0;
-}
-
 int main(int argc, const char *argv[]) {
 	printf("glWHYz! demo " VERSION " - Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>\n");
 
@@ -892,13 +955,9 @@ int main(int argc, const char *argv[]) {
 		return -1;
 	}
 	create_window(SCREEN_WIDTH, SCREEN_HEIGHT);
-
 	init_gl();
-	glGenTextures(NUM_TEXTURES, textures);
-	if (load_texture(IMG_BG, textures[TEXTURE_BG]) ||
-		load_texture(IMG_FG, textures[TEXTURE_FG]) ||
-		load_texture(IMG_COPYRIGHT, textures[TEXTURE_COPYRIGHT]) ||
-		load_texture(IMG_PARTICLE, textures[TEXTURE_PARTICLE])) {
+
+	if (!texmgr.load(sizeof(texture_filenames)/sizeof(const char **), texture_filenames)) {
 		exit_program(-1);
 	}
 	wave.init();
