@@ -76,6 +76,7 @@ struct Vertex {
 };
 
 class Wave {
+	// TODO add x, y
 	int xt, yt;
 	float xtime, ytime;
 /*
@@ -95,6 +96,18 @@ public:
 	void draw(void);
 };
 
+class Spinner {
+	// TODO add x, y
+	// TODO add per-object angular direction, speed?
+	float angle;
+
+public:
+	Spinner() : angle(0.0f) { }
+
+	void spin(float);
+	void draw(void);
+};
+
 // copyright scroller
 class Scroller {
 	GLfloat x;
@@ -109,11 +122,24 @@ public:
 	void draw(void);
 };
 
-// (simple) particles
-typedef struct {
+// (very simple) particles
+struct Particle {
 	GLfloat x, y, speed, drift;
 	int depth;
-} Particle;
+
+	void init(void);
+	void move(float);
+	void draw(void);
+};
+
+class ParticleSystem {
+	Particle parts[NUM_PARTICLES];
+
+public:
+	void init(void);
+	void move(float);
+	void draw(int);
+};
 
 SDL_Window *main_window = NULL;
 SDL_GLContext glcontext;
@@ -127,13 +153,12 @@ float screen_h = (float)SCREEN_HEIGHT;
 // camera does nothing, really
 float cam_x = 0.0f, cam_y = 0.0f;
 
-float background_angle = 0.0f;		// rotation of background (green smiley)
-
 GLuint textures[NUM_TEXTURES];				// GL texture identifiers
 
 Wave wave;
+Spinner spinner;
 Scroller scroller;
-Particle particles[NUM_PARTICLES];
+ParticleSystem particles;
 
 float perf_freq;
 int framecount = 0;
@@ -292,6 +317,57 @@ void Wave::draw(void) {
 	glPopMatrix();
 }
 
+void Spinner::spin(float timestep) {
+	if (timestep <= 0.001f) {
+		return;
+	}
+	if (!(options & OPT_PAUSED)) {
+		angle += ROTATE_SPEED * timestep;	// rotate
+		if (angle >= 360.0f)
+			angle -= 360.0f;
+	}
+}
+
+// draw a spinner
+void Spinner::draw(void) {
+	glPushMatrix();
+	// center it
+	glTranslatef(SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f, 0.0f);
+	// make reasonable size
+	glScalef(256.0f, 256.0f, 1.0f);
+
+	// spin it around
+	glRotatef(angle, 0.0f, 0.0f, 1.0f);
+
+	if (options & OPT_WIREFRAME) {
+		glColor3ub(0, 0xa0, 0);
+	} else {
+		glColor3f(1.0f, 1.0f, 1.0f);
+	}
+	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_BG]);
+
+	const GLfloat vertex_arr[8] = { 
+		-1, 1,
+		-1, -1,
+		1, 1,
+		1, -1
+	};
+
+	const GLfloat tex_arr[8] = {
+		0, 0,
+		0, 1,
+		1, 0,
+		1, 1
+	};
+
+	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
+	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	glPopMatrix();
+}
+
 void Scroller::init(void) {
 	x = SCREEN_WIDTH * 0.5f,
 	direction = -SCROLLER_SPEED,
@@ -384,47 +460,78 @@ void Scroller::draw(void) {
 	glPopMatrix();
 }
 
-// draw a spinning background
-void draw_background(void) {
-	glPushMatrix();
-	// center it
-	glTranslatef(SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f, 0.0f);
-	// make reasonable size
-	glScalef(256.0f, 256.0f, 1.0f);
-
-	// spin it around
-	glRotatef(background_angle, 0.0f, 0.0f, 1.0f);
-
-	if (options & OPT_WIREFRAME) {
-		glColor3ub(0, 0xa0, 0);
-	} else {
-		glColor3f(1.0f, 1.0f, 1.0f);
-	}
-	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_BG]);
-
-	const GLfloat vertex_arr[8] = { 
-		-1, 1,
-		-1, -1,
-		1, 1,
-		1, -1
-	};
-
-	const GLfloat tex_arr[8] = {
-		0, 0,
-		0, 1,
-		1, 0,
-		1, 1
-	};
-
-	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
-	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
-
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-	glPopMatrix();
+void Particle::init(void) {
+	/*
+		these particles move in the Y direction and hardly in the X direction
+		allowing them to start far off the screen is my way of spreading them out better
+		it's not perfect, but it works somewhat
+	*/
+	x = random() % (SCREEN_WIDTH - PARTICLE_W);
+	y = SCREEN_HEIGHT + PARTICLE_H + (random() % SCREEN_HEIGHT);
+	speed = (random() % 5) + 5.0f;
+	drift = (random() % 5) * 0.5f - 1.0f;
+	depth = random() % 6;
+	speed = depth * 0.5f + 1.0f;	// speed based on depth
 }
 
-void draw_particles(int depth) {
+void Particle::move(float timestep) {
+	if (depth != PARTICLE_DEAD) {
+		y -= speed * timestep * PARTICLE_SPEED;
+		speed += PARTICLE_ACCEL;	// acceleration
+
+		x += drift * timestep * PARTICLE_SPEED;
+
+		if (y <= -PARTICLE_H) {
+			depth = PARTICLE_DEAD;
+		} else {
+			if (x <= -PARTICLE_W) {
+				depth = PARTICLE_DEAD;
+			} else {
+				if (x >= SCREEN_WIDTH) {
+					depth = PARTICLE_DEAD;
+				}
+			}
+		}
+	} else {
+		init();
+	}
+}
+
+void Particle::draw(void) {
+	// Note: texture must already have been bound
+	// Note: texture coord pointer must already have been set
+
+	GLfloat vertex_arr[8];
+
+	vertex_arr[0] = x;
+	vertex_arr[1] = y;
+	vertex_arr[2] = x;
+	vertex_arr[3] = y + PARTICLE_H;
+	vertex_arr[4] = x + PARTICLE_W;
+	vertex_arr[5] = y;
+	vertex_arr[6] = x + PARTICLE_W;
+	vertex_arr[7] = y + PARTICLE_H;
+
+	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void ParticleSystem::init(void) {
+	for(int n = 0; n < NUM_PARTICLES; n++) {
+		parts[n].depth = PARTICLE_DEAD;
+	}
+}
+
+void ParticleSystem::move(float timestep) {
+	if (timestep <= 0.001f) {
+		return;
+	}
+	for(int n = 0; n < NUM_PARTICLES; n++) {
+		parts[n].move(timestep);
+	}
+}
+
+void ParticleSystem::draw(int depth) {
 	glPushMatrix();
 
 	if (options & OPT_WIREFRAME) {
@@ -435,13 +542,6 @@ void draw_particles(int depth) {
 	}
 	glBindTexture(GL_TEXTURE_2D, textures[TEXTURE_PARTICLE]);
 
-	const GLfloat vertex_arr[8] = {
-		0, 0,
-		0, PARTICLE_H-1,
-		PARTICLE_W-1, 0,
-		PARTICLE_W-1, PARTICLE_H-1
-	};
-
 	const GLfloat tex_arr[8] = {
 		0, 0,
 		0, 1,
@@ -449,28 +549,12 @@ void draw_particles(int depth) {
 		1, 1
 	};
 
-	GLfloat particle_arr[8];
-
-	memcpy(particle_arr, vertex_arr, sizeof(GLfloat) * 8);
-
-	glVertexPointer(2, GL_FLOAT, 0, particle_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
 	for(int n = 0; n < NUM_PARTICLES; n++) {
-		if (particles[n].depth == depth		/* && visible */
-			&& particles[n].y > -PARTICLE_H && particles[n].y < SCREEN_HEIGHT) {
-
-			memcpy(particle_arr, vertex_arr, sizeof(GLfloat) * 8);
-			particle_arr[0] += particles[n].x;
-			particle_arr[1] += particles[n].y;
-			particle_arr[2] += particles[n].x;
-			particle_arr[3] += particles[n].y;
-			particle_arr[4] += particles[n].x;
-			particle_arr[5] += particles[n].y;
-			particle_arr[6] += particles[n].x;
-			particle_arr[7] += particles[n].y;
-
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		if (parts[n].depth == depth		/* && visible */
+			&& parts[n].y > -PARTICLE_H && parts[n].y < SCREEN_HEIGHT) {
+			parts[n].draw();
 		}
 	}
 	glDisable(GL_BLEND);
@@ -485,30 +569,56 @@ void draw_scene(void) {
 	// reverse camera
 	glTranslatef(-cam_x, -cam_y, 0.0f);
 
-	draw_particles(0);
+	particles.draw(0);
 
 	if (!scroller.depth) {
 		scroller.draw();
 	}
-	draw_particles(1);
+	particles.draw(1);
 
-	draw_background();
+	spinner.draw();
 
-	draw_particles(2);
+	particles.draw(2);
 
 	if (scroller.depth == 1) {
 		scroller.draw();
 	}
-	draw_particles(3);
+	particles.draw(3);
 
 	wave.draw();
 
-	draw_particles(4);
+	particles.draw(4);
 
 	if (scroller.depth == 2) {
 		scroller.draw();
 	}
-	draw_particles(5);
+	particles.draw(5);
+}
+
+void count_framerate(void) {
+	framecount++;
+	if (framecount > 100) {
+		Uint64 now = SDL_GetPerformanceCounter();
+		printf("FPS %.1f\n", (float)framecount / ((now - framecount_timer) / perf_freq));
+		framecount_timer = now;
+		framecount = 0;
+	}
+}
+
+void draw_screen(void) {
+	draw_scene();
+
+	glFlush();
+	GLenum err = glGetError();
+	if (err != 0) {
+		fprintf(stderr, "glGetError(): %d\n", (int)err);
+		exit_program(-1);
+	}
+	SDL_GL_SwapWindow(main_window);
+
+	if (options & OPT_FRAMECOUNTER) {
+		count_framerate();
+	}
 }
 
 void init_gl(void) {
@@ -588,91 +698,6 @@ void create_window(int w, int h) {
 	glLoadIdentity();
 
 	glViewport(0, 0, w, h);
-}
-
-void count_framerate(void) {
-	framecount++;
-	if (framecount > 100) {
-		Uint64 now = SDL_GetPerformanceCounter();
-		printf("FPS %.1f\n", (float)framecount / ((now - framecount_timer) / perf_freq));
-		framecount_timer = now;
-		framecount = 0;
-	}
-}
-
-void init_particles(void) {
-	for(int n = 0; n < NUM_PARTICLES; n++) {
-		particles[n].depth = PARTICLE_DEAD;
-	}
-}
-
-void rotate_background(float timestep) {
-	if (timestep <= 0.001f) {
-		return;
-	}
-	if (!(options & OPT_PAUSED)) {
-		background_angle += ROTATE_SPEED * timestep;	// rotate
-		if (background_angle >= 360.0f)
-			background_angle -= 360.0f;
-	}
-}
-
-void init_particle(int n) {
-	/*
-		these particles move in the Y direction and hardly in the X direction
-		allowing them to start far off the screen is my way of spreading them out better
-		it's not perfect, but it works somewhat
-	*/
-	particles[n].x = random() % (SCREEN_WIDTH - PARTICLE_W);
-	particles[n].y = SCREEN_HEIGHT + PARTICLE_H + (random() % SCREEN_HEIGHT);
-	particles[n].speed = (random() % 5) + 5.0f;
-	particles[n].drift = (random() % 5) * 0.5f - 1.0f;
-	particles[n].depth = random() % 6;
-	particles[n].speed = particles[n].depth * 0.5f + 1.0f;	// speed based on depth
-}
-
-void move_particles(float timestep) {
-	if (timestep <= 0.001f) {
-		return;
-	}
-	for(int n = 0; n < NUM_PARTICLES; n++) {
-		if (particles[n].depth != PARTICLE_DEAD) {
-			particles[n].y -= particles[n].speed * timestep * PARTICLE_SPEED;
-			particles[n].speed += PARTICLE_ACCEL;	// acceleration
-
-			particles[n].x += particles[n].drift * timestep * PARTICLE_SPEED;
-
-			if (particles[n].y <= -PARTICLE_H) {
-				particles[n].depth = PARTICLE_DEAD;
-			} else {
-				if (particles[n].x <= -PARTICLE_W) {
-					particles[n].depth = PARTICLE_DEAD;
-				} else {
-					if (particles[n].x >= SCREEN_WIDTH) {
-						particles[n].depth = PARTICLE_DEAD;
-					}
-				}
-			}
-		} else {
-			init_particle(n);
-		}
-	}
-}
-
-void draw_screen(void) {
-	draw_scene();
-
-	glFlush();
-	GLenum err = glGetError();
-	if (err != 0) {
-		fprintf(stderr, "glGetError(): %d\n", (int)err);
-		exit_program(-1);
-	}
-	SDL_GL_SwapWindow(main_window);
-
-	if (options & OPT_FRAMECOUNTER) {
-		count_framerate();
-	}
 }
 
 void window_event(int event) {
@@ -877,7 +902,7 @@ int main(int argc, const char *argv[]) {
 	}
 	wave.init();
 	scroller.init();
-	init_particles();
+	particles.init();
 
 	srandom(time(NULL));
 
@@ -894,8 +919,8 @@ int main(int argc, const char *argv[]) {
 
 		if (!(options & OPT_PAUSED)) {
 			wave.animate(timestep);
-			rotate_background(timestep);
-			move_particles(timestep);
+			spinner.spin(timestep);
+			particles.move(timestep);
 			scroller.move(timestep);
 		}
 		draw_screen();
