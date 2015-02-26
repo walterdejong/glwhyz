@@ -12,7 +12,6 @@
 #include <stdarg.h>
 #include <time.h>
 #include <math.h>
-#include <assert.h>
 
 // enable debug printing
 //#define DEBUG	1
