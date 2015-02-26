@@ -91,6 +91,8 @@ class Wave {
 	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
 
 public:
+	Wave() : xt(0), yt(0), xtime(0.0f), ytime(0.0) { }
+
 	void init(void);
 	void animate(float);
 	void draw(void);
@@ -213,7 +215,6 @@ void Wave::init(void) {
 		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
 		y_offsets[n] = WAVE_SCALE * d;
 	}
-	xt = yt = 0;
 }
 
 //	on every frame, add wave table values to the coordinates of the triangles
