@@ -35,14 +35,6 @@ using namespace std;
 // how dramatic is the wave
 #define WAVE_SCALE			30.0f
 
-// particles
-#define PARTICLE_W			64
-#define PARTICLE_H			64
-#define NUM_PARTICLES		32
-#define PARTICLE_ACCEL		0.1f
-#define PARTICLE_DEAD		-1
-#define PARTICLE_SPEED		30.0f
-
 // options
 #define OPT_WIREFRAME		1
 #define OPT_PAUSED			2
@@ -118,11 +110,11 @@ public:
 
 // copyright scroller
 class Scroller {
-	const float WIDTH = SCREEN_WIDTH;
-	const float HEIGHT = 16.0f;
-	const float SPEED = 10.0f;
-	const float SCALE_X = 0.5f;
-	const float SCALE_Y = 1.25f;
+	static constexpr float WIDTH = SCREEN_WIDTH;
+	static constexpr float HEIGHT = 16.0f;
+	static constexpr float SPEED = 10.0f;
+	static constexpr float SCALE_X = 0.5f;
+	static constexpr float SCALE_Y = 1.25f;
 
 	GLfloat x;
 	GLfloat direction;
@@ -141,7 +133,14 @@ public:
 
 // (very simple) particles
 struct Particle {
-	GLfloat x, y, speed, drift;
+// particles
+	static const int WIDTH = 64;
+	static const int HEIGHT = 64;
+	static constexpr float ACCEL = 0.1f;
+	static const int DEAD = -1;
+	static constexpr float SPEED = 30.0f;
+
+	float x, y, speed, drift;
 	int depth;
 
 	void init(void);
@@ -150,7 +149,8 @@ struct Particle {
 };
 
 class ParticleSystem {
-	Particle parts[NUM_PARTICLES];
+	static const int NUM_PARTICLES = 32;
+	Particle parts[ParticleSystem::NUM_PARTICLES];
 
 public:
 	void init(void);
@@ -561,8 +561,8 @@ void Particle::init(void) {
 		allowing them to start far off the screen is my way of spreading them out better
 		it's not perfect, but it works somewhat
 	*/
-	x = random() % (SCREEN_WIDTH - PARTICLE_W);
-	y = SCREEN_HEIGHT + PARTICLE_H + (random() % SCREEN_HEIGHT);
+	x = random() % (SCREEN_WIDTH - Particle::WIDTH);
+	y = SCREEN_HEIGHT + Particle::HEIGHT + (random() % SCREEN_HEIGHT);
 	speed = (random() % 5) + 5.0f;
 	drift = (random() % 5) * 0.5f - 1.0f;
 	depth = random() % 6;
@@ -570,20 +570,20 @@ void Particle::init(void) {
 }
 
 void Particle::move(float timestep) {
-	if (depth != PARTICLE_DEAD) {
-		y -= speed * timestep * PARTICLE_SPEED;
-		speed += PARTICLE_ACCEL;	// acceleration
+	if (depth != Particle::DEAD) {
+		y -= speed * timestep * Particle::SPEED;
+		speed += Particle::ACCEL;	// acceleration
 
-		x += drift * timestep * PARTICLE_SPEED;
+		x += drift * timestep * Particle::SPEED;
 
-		if (y <= -PARTICLE_H) {
-			depth = PARTICLE_DEAD;
+		if (y <= -Particle::HEIGHT) {
+			depth = Particle::DEAD;
 		} else {
-			if (x <= -PARTICLE_W) {
-				depth = PARTICLE_DEAD;
+			if (x <= -Particle::WIDTH) {
+				depth = Particle::DEAD;
 			} else {
 				if (x >= SCREEN_WIDTH) {
-					depth = PARTICLE_DEAD;
+					depth = Particle::DEAD;
 				}
 			}
 		}
@@ -601,19 +601,19 @@ void Particle::draw(void) {
 	vertex_arr[0] = x;
 	vertex_arr[1] = y;
 	vertex_arr[2] = x;
-	vertex_arr[3] = y + PARTICLE_H;
-	vertex_arr[4] = x + PARTICLE_W;
+	vertex_arr[3] = y + Particle::HEIGHT;
+	vertex_arr[4] = x + Particle::WIDTH;
 	vertex_arr[5] = y;
-	vertex_arr[6] = x + PARTICLE_W;
-	vertex_arr[7] = y + PARTICLE_H;
+	vertex_arr[6] = x + Particle::WIDTH;
+	vertex_arr[7] = y + Particle::HEIGHT;
 
 	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void ParticleSystem::init(void) {
-	for(int n = 0; n < NUM_PARTICLES; n++) {
-		parts[n].depth = PARTICLE_DEAD;
+	for(int n = 0; n < ParticleSystem::NUM_PARTICLES; n++) {
+		parts[n].depth = Particle::DEAD;
 	}
 }
 
@@ -621,7 +621,7 @@ void ParticleSystem::move(float timestep) {
 	if (timestep <= 0.001f) {
 		return;
 	}
-	for(int n = 0; n < NUM_PARTICLES; n++) {
+	for(int n = 0; n < ParticleSystem::NUM_PARTICLES; n++) {
 		parts[n].move(timestep);
 	}
 }
@@ -646,9 +646,9 @@ void ParticleSystem::draw(int depth) {
 
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
-	for(int n = 0; n < NUM_PARTICLES; n++) {
+	for(int n = 0; n < ParticleSystem::NUM_PARTICLES; n++) {
 		if (parts[n].depth == depth		/* && visible */
-			&& parts[n].y > -PARTICLE_H && parts[n].y < SCREEN_HEIGHT) {
+			&& parts[n].y > -Particle::HEIGHT && parts[n].y < SCREEN_HEIGHT) {
 			parts[n].draw();
 		}
 	}
