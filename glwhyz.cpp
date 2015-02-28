@@ -169,6 +169,7 @@ SDL_GLContext glcontext;
 const char *title = "glWHYz - WJ107/WJ115";
 
 int options = 0;	// OPT_FULLSCREEN;
+bool is_fullscreen = false;
 
 float screen_w = (float)SCREEN_WIDTH;
 float screen_h = (float)SCREEN_HEIGHT;
@@ -793,8 +794,10 @@ void create_window(int w, int h) {
 		 */
 		modeflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		w = h = 0;
+		is_fullscreen = true;
 	} else {
 		modeflags |= SDL_WINDOW_RESIZABLE;
+		is_fullscreen = false;
 	}
 	main_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, 0, w, h, modeflags);
 	if (main_window == NULL) {
@@ -833,26 +836,42 @@ void create_window(int w, int h) {
 	glViewport(0, 0, w, h);
 }
 
+void show_mouse(bool shown) {
+	SDL_ShowCursor(shown ? 1 : 0);
+}
+
 void window_event(int event) {
 	switch(event) {
 		case SDL_WINDOWEVENT_CLOSE:
 			debug("CLOSE");
+			show_mouse(true);
 			exit_program(0);
 
 		case SDL_WINDOWEVENT_SHOWN:
 			debug("SHOWN");
 			options &= ~OPT_PAUSED;
 			draw_screen();
+
+			if (is_fullscreen) {
+				show_mouse(false);
+			}
 			break;
 
 		case SDL_WINDOWEVENT_HIDDEN:
 			debug("HIDDEN");
 			options |= OPT_PAUSED;
+			show_mouse(true);
 			break;
 
 		case SDL_WINDOWEVENT_EXPOSED:
 			debug("EXPOSED");
 			draw_screen();
+
+			if (is_fullscreen) {
+				show_mouse(false);
+			} else {
+				show_mouse(true);
+			}
 			break;
 
 		case SDL_WINDOWEVENT_RESIZED:
@@ -864,6 +883,17 @@ void window_event(int event) {
 			screen_h = (float)h;
 			glViewport(0, 0, screen_w, screen_h);
 
+			// check if resized to fullscreen
+			SDL_DisplayMode mode;
+			SDL_GetDisplayMode(0, 0, &mode);
+			if (screen_w == mode.w && screen_h == mode.h) {
+				SDL_SetWindowFullscreen(main_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+				is_fullscreen = true;
+				show_mouse(false);
+			} else {
+				is_fullscreen = false;
+				show_mouse(true);
+			}
 			// reset time
 			last_time = SDL_GetPerformanceCounter();
 			break;
@@ -871,11 +901,16 @@ void window_event(int event) {
 		case SDL_WINDOWEVENT_FOCUS_LOST:
 			debug("FOCUS_LOST");
 			options |= OPT_PAUSED;
+			show_mouse(true);
 			break;
 
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
 			debug("FOCUS_GAINED");
 			options &= ~OPT_PAUSED;
+
+			if (is_fullscreen) {
+				show_mouse(false);
+			}
 			break;
 
 		default:
@@ -925,6 +960,9 @@ void handle_keypress(int key) {
 				screen_w = (float)SCREEN_WIDTH;
 				screen_h = (float)SCREEN_HEIGHT;
 				glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+				is_fullscreen = false;
+				show_mouse(true);
 			} else {
 				SDL_DisplayMode mode;
 
@@ -935,6 +973,9 @@ void handle_keypress(int key) {
 				screen_w = (float)mode.w;
 				screen_h = (float)mode.h;
 				glViewport(0, 0, mode.w, mode.h);
+
+				is_fullscreen = true;
+				show_mouse(false);
 			}
 			break;
 
