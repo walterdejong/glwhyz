@@ -25,11 +25,6 @@ using namespace std;
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-// how dramatic is the wave
-#define WAVE_SCALE			30.0f
-// the wave effect is too fast, WAVE_DELAY is a "frame skip" parameter
-#define WAVE_DELAY			1
-
 //	dimensions of the copyright scroller
 #define SCROLLER_WIDTH		((GLfloat)SCREEN_WIDTH)
 #define SCROLLER_HEIGHT		16.0f
@@ -38,14 +33,14 @@ using namespace std;
 #define SCROLLER_SCALE_Y	1.25f
 
 // defines for the wave form
-#define DIM_X				512
-#define DIM_Y				512
 #define QUAD_W				16
 #define QUAD_H				16
-#define DIM_W				(DIM_X / QUAD_W)
-#define DIM_H				(DIM_Y / QUAD_H)
+#define DIM_W				32
+#define DIM_H				32
 #define NUM_VERTEX			((DIM_W+1) * (DIM_H+1))
 #define WAVE_SPEED			16.0f
+// how dramatic is the wave
+#define WAVE_SCALE			30.0f
 
 // particles
 #define PARTICLE_W			64
@@ -91,7 +86,7 @@ struct Vec2 {
 };
 
 class Wave {
-	// TODO add x, y
+	float x, y;
 	int xt, yt;
 	float xtime, ytime;
 /*
@@ -106,7 +101,9 @@ class Wave {
 	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
 
 public:
-	Wave() : xt(0), yt(0), xtime(0.0f), ytime(0.0) { }
+	Wave() : x((SCREEN_WIDTH - (DIM_W + WAVE_SCALE * DIM_W)) * 0.5f),
+		y((SCREEN_HEIGHT - (DIM_H + WAVE_SCALE * DIM_H)) * 0.5f),
+		xt(0), yt(0), xtime(0.0f), ytime(0.0) { }
 
 	void init(void);
 	void animate(float);
@@ -290,11 +287,14 @@ bool TextureMgr::load_texture(const char *filename, int idx) {
 
 //	define vertices and set wave table values
 void Wave::init(void) {
+	float center_x = DIM_W * 0.5f;
+	float center_y = DIM_H * 0.5f;
+
 	// set coordinates for polygons and for texturing
 	for(int j = 0, n = 0; j < DIM_H+1; j++) {
 		for(int i = 0; i < DIM_W+1; i++) {
-			org_vertex[n].x = i * QUAD_W;
-			org_vertex[n].y = j * QUAD_H;
+			org_vertex[n].x = i * QUAD_W - center_x;
+			org_vertex[n].y = j * QUAD_H - center_y;
 			texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
 			texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
 			n++;
@@ -360,9 +360,7 @@ void Wave::animate(float timestep) {
 void Wave::draw(void) {
 	glPushMatrix();
 
-	// FIXME translate(x, y, 0)
-	// center it
-	glTranslatef(DIM_X - DIM_X * 0.1f, 0.0, 0.0f);
+	glTranslatef(x, y, 0.0f);
 	// make reasonable size
 	glScalef(2.0f, 2.0f, 1.0f);		// FIXME scaling parameter
 
