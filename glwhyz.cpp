@@ -89,7 +89,7 @@ private:
 	bool load_texture(const char *, int);
 };
 
-struct Vertex {
+struct Vec2 {
 	GLfloat x, y;
 };
 
@@ -103,8 +103,8 @@ class Wave {
 	* vertex holds the manipulated triangles, this is what is being drawn
 	* texture_vertex holds the texture coordinates
 */
-	Vertex org_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
-	Vertex texture_vertex[NUM_VERTEX];
+	Vec2 org_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
+	Vec2 texture_vertex[NUM_VERTEX];
 
 	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
 
@@ -323,7 +323,7 @@ void Wave::animate(float timestep) {
 		return;
 	}
 	// update wave vertices
-	memcpy(vertex, org_vertex, sizeof(Vertex) * NUM_VERTEX);
+	memcpy(vertex, org_vertex, sizeof(Vec2) * NUM_VERTEX);
 
 	for(int j = 0, n = 0; j < DIM_H+1; j++) {
 		for(int i = 0; i < DIM_W+1; i++) {
