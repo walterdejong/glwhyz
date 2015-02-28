@@ -25,16 +25,6 @@ using namespace std;
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-// defines for the wave form
-#define QUAD_W				16
-#define QUAD_H				16
-#define DIM_W				32
-#define DIM_H				32
-#define NUM_VERTEX			((DIM_W+1) * (DIM_H+1))
-#define WAVE_SPEED			16.0f
-// how dramatic is the wave
-#define WAVE_SCALE			30.0f
-
 // options
 #define OPT_WIREFRAME		1
 #define OPT_PAUSED			2
@@ -71,6 +61,15 @@ struct Vec2 {
 };
 
 class Wave {
+	static const int QUAD_W = 16;
+	static const int QUAD_H = 16;
+	static const int DIM_W = 32;
+	static const int DIM_H = 32;
+	static const int NUM_VERTEX = ((DIM_W+1) * (DIM_H+1));
+	static constexpr float SPEED = 16.0f;
+	// how dramatic is the wave
+	static constexpr float SCALE = 30.0f;
+
 	float x, y;
 	int xt, yt;
 	float xtime, ytime;
@@ -82,14 +81,14 @@ class Wave {
 	* vertex holds the manipulated triangles, this is what is being drawn
 	* texture_vertex holds the texture coordinates
 */
-	Vec2 org_vertex[NUM_VERTEX], vertex[NUM_VERTEX];
-	Vec2 texture_vertex[NUM_VERTEX];
+	Vec2 org_vertex[Wave::NUM_VERTEX], vertex[Wave::NUM_VERTEX];
+	Vec2 texture_vertex[Wave::NUM_VERTEX];
 
-	GLfloat x_offsets[DIM_W+1], y_offsets[DIM_H+1];		// table with offsets
+	GLfloat x_offsets[Wave::DIM_W+1], y_offsets[Wave::DIM_H+1];		// table with offsets
 
 public:
-	Wave() : x((SCREEN_WIDTH - (DIM_W + WAVE_SCALE * DIM_W)) * 0.5f),
-		y((SCREEN_HEIGHT - (DIM_H + WAVE_SCALE * DIM_H)) * 0.5f),
+	Wave() : x((SCREEN_WIDTH - (Wave::DIM_W + Wave::SCALE * Wave::DIM_W)) * 0.5f),
+		y((SCREEN_HEIGHT - (Wave::DIM_H + Wave::SCALE * Wave::DIM_H)) * 0.5f),
 		xt(0), yt(0), xtime(0.0f), ytime(0.0), scale(2.0f), texture(TextureMgr::TEX_WAVE) { }
 
 	void init(void);
@@ -133,7 +132,6 @@ public:
 
 // (very simple) particles
 struct Particle {
-// particles
 	static const int WIDTH = 64;
 	static const int HEIGHT = 64;
 	static constexpr float ACCEL = 0.1f;
@@ -291,29 +289,29 @@ bool TextureMgr::load_texture(const char *filename, int idx) {
 
 //	define vertices and set wave table values
 void Wave::init(void) {
-	float center_x = DIM_W * 0.5f;
-	float center_y = DIM_H * 0.5f;
+	float center_x = Wave::DIM_W * 0.5f;
+	float center_y = Wave::DIM_H * 0.5f;
 
 	// set coordinates for polygons and for texturing
-	for(int j = 0, n = 0; j < DIM_H+1; j++) {
-		for(int i = 0; i < DIM_W+1; i++) {
-			org_vertex[n].x = i * QUAD_W - center_x;
-			org_vertex[n].y = j * QUAD_H - center_y;
-			texture_vertex[n].x = (GLfloat)i / (GLfloat)DIM_W;
-			texture_vertex[n].y = (GLfloat)j / (GLfloat)DIM_H;
+	for(int j = 0, n = 0; j < Wave::DIM_H+1; j++) {
+		for(int i = 0; i < Wave::DIM_W+1; i++) {
+			org_vertex[n].x = i * Wave::QUAD_W - center_x;
+			org_vertex[n].y = j * Wave::QUAD_H - center_y;
+			texture_vertex[n].x = (GLfloat)i / (GLfloat)Wave::DIM_W;
+			texture_vertex[n].y = (GLfloat)j / (GLfloat)Wave::DIM_H;
 			n++;
 		}
 	}
 	// initialize wave tables
-	for(int n = 0; n < DIM_W+1; n++) {
-		double val = (double)(n * 2 * M_PI) / (double)(DIM_W+1);
+	for(int n = 0; n < Wave::DIM_W+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(Wave::DIM_W+1);
 		double d = sin(val*2) + cos(val)/2.0;
-		x_offsets[n] = WAVE_SCALE * d;
+		x_offsets[n] = Wave::SCALE * d;
 	}
-	for(int n = 0; n < DIM_H+1; n++) {
-		double val = (double)(n * 2 * M_PI) / (double)(DIM_H+1);
+	for(int n = 0; n < Wave::DIM_H+1; n++) {
+		double val = (double)(n * 2 * M_PI) / (double)(Wave::DIM_H+1);
 		double d = sin(val) + cos(3*val)/3.0 + sin(2*val)/2.0;
-		y_offsets[n] = WAVE_SCALE * d;
+		y_offsets[n] = Wave::SCALE * d;
 	}
 }
 
@@ -323,38 +321,38 @@ void Wave::animate(float timestep) {
 		return;
 	}
 	// update wave vertices
-	memcpy(vertex, org_vertex, sizeof(Vec2) * NUM_VERTEX);
+	memcpy(vertex, org_vertex, sizeof(Vec2) * Wave::NUM_VERTEX);
 
-	for(int j = 0, n = 0; j < DIM_H+1; j++) {
-		for(int i = 0; i < DIM_W+1; i++) {
+	for(int j = 0, n = 0; j < Wave::DIM_H+1; j++) {
+		for(int i = 0; i < Wave::DIM_W+1; i++) {
 			vertex[n].x += x_offsets[wave.xt];
 			vertex[n].y += y_offsets[wave.yt];
 			yt++;
-			if (yt >= DIM_H+1) {
+			if (yt >= Wave::DIM_H+1) {
 				yt = 0;
 			}
 			n++;
 		}
 		xt++;
-		if (xt >= DIM_W+1) {
+		if (xt >= Wave::DIM_W+1) {
 			xt = 0;
 		}
 	}
 
 	/* this steers the wavy animation */
-	xtime += timestep * WAVE_SPEED;
+	xtime += timestep * Wave::SPEED;
 	if (xtime >= 1.0f) {
 		xtime -= 1.0f;
 		xt++;
-		if (xt >= DIM_W+1) {
+		if (xt >= Wave::DIM_W+1) {
 			xt = 0;
 		}
 	}
-	ytime += timestep * WAVE_SPEED;
+	ytime += timestep * Wave::SPEED;
 	if (ytime >= 1.0f) {
 		ytime -= 1.0f;
 		yt++;
-		if (yt >= DIM_H+1) {
+		if (yt >= Wave::DIM_H+1) {
 			yt = 0;
 		}
 	}
@@ -373,15 +371,15 @@ void Wave::draw(void) {
 	}
 	texmgr.glbind(texture);
 
-	GLfloat vertex_arr[(DIM_W+1) * 4];
-	GLfloat tex_arr[(DIM_W+1) * 4];
+	GLfloat vertex_arr[(Wave::DIM_W+1) * 4];
+	GLfloat tex_arr[(Wave::DIM_W+1) * 4];
 
 	glVertexPointer(2, GL_FLOAT, 0, vertex_arr);
 	glTexCoordPointer(2, GL_FLOAT, 0, tex_arr);
 
-	for(int j = 0, n = 0, v = 0; j < DIM_H; j++) {
+	for(int j = 0, n = 0, v = 0; j < Wave::DIM_H; j++) {
 		n = 0;
-		v = j * (DIM_W+1);
+		v = j * (Wave::DIM_W + 1);
 
 		tex_arr[n] = texture_vertex[v].x;
 		vertex_arr[n++] = vertex[v].x;
@@ -389,24 +387,24 @@ void Wave::draw(void) {
 		tex_arr[n] = texture_vertex[v].y;
 		vertex_arr[n++] = vertex[v].y;
 
-		tex_arr[n] = texture_vertex[v+DIM_W+1].x;
-		vertex_arr[n++] = vertex[v+DIM_W+1].x;
+		tex_arr[n] = texture_vertex[v + Wave::DIM_W + 1].x;
+		vertex_arr[n++] = vertex[v + Wave::DIM_W + 1].x;
 
-		tex_arr[n] = texture_vertex[v+DIM_W+1].y;
-		vertex_arr[n++] = vertex[v+DIM_W+1].y;
+		tex_arr[n] = texture_vertex[v + Wave::DIM_W + 1].y;
+		vertex_arr[n++] = vertex[v + Wave::DIM_W + 1].y;
 
-		for(int i = 0; i < DIM_W; i++) {
-			tex_arr[n] = texture_vertex[v+1].x;
-			vertex_arr[n++] = vertex[v+1].x;
+		for(int i = 0; i < Wave::DIM_W; i++) {
+			tex_arr[n] = texture_vertex[v + 1].x;
+			vertex_arr[n++] = vertex[v + 1].x;
 
-			tex_arr[n] = texture_vertex[v+1].y;
-			vertex_arr[n++] = vertex[v+1].y;
+			tex_arr[n] = texture_vertex[v + 1].y;
+			vertex_arr[n++] = vertex[v + 1].y;
 
-			tex_arr[n] = texture_vertex[v+DIM_W+2].x;
-			vertex_arr[n++] = vertex[v+DIM_W+2].x;
+			tex_arr[n] = texture_vertex[v + Wave::DIM_W + 2].x;
+			vertex_arr[n++] = vertex[v + Wave::DIM_W + 2].x;
 
-			tex_arr[n] = texture_vertex[v+DIM_W+2].y;
-			vertex_arr[n++] = vertex[v+DIM_W+2].y;
+			tex_arr[n] = texture_vertex[v + Wave::DIM_W + 2].y;
+			vertex_arr[n++] = vertex[v + Wave::DIM_W + 2].y;
 
 			v++;
 		}
