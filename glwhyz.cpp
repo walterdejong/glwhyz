@@ -89,6 +89,7 @@ class Wave {
 	float x, y;
 	int xt, yt;
 	float xtime, ytime;
+	float scale;
 /*
 	used for the wave effect:
 	* org_vertex holds a large square that has been subdivided into small triangles
@@ -103,7 +104,7 @@ class Wave {
 public:
 	Wave() : x((SCREEN_WIDTH - (DIM_W + WAVE_SCALE * DIM_W)) * 0.5f),
 		y((SCREEN_HEIGHT - (DIM_H + WAVE_SCALE * DIM_H)) * 0.5f),
-		xt(0), yt(0), xtime(0.0f), ytime(0.0) { }
+		xt(0), yt(0), xtime(0.0f), ytime(0.0), scale(2.0f) { }
 
 	void init(void);
 	void animate(float);
@@ -362,7 +363,7 @@ void Wave::draw(void) {
 
 	glTranslatef(x, y, 0.0f);
 	// make reasonable size
-	glScalef(2.0f, 2.0f, 1.0f);		// FIXME scaling parameter
+	glScalef(scale, scale, 1.0f);
 
 	if (options & OPT_WIREFRAME) {
 		glColor3ub(0xff, 0xff, 0);
