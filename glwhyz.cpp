@@ -114,13 +114,11 @@ public:
 };
 
 class Spinner {
-	float angle;
-
 public:
-	float x, y, scale, rotation;
+	float x, y, scale, rotation, angle;
 
-	Spinner() : angle(0.0f), x(SCREEN_WIDTH * 0.5f), y(SCREEN_HEIGHT * 0.5f),
-		scale(256.0f), rotation(120.0f) { }
+	Spinner() : x(SCREEN_WIDTH * 0.5f), y(SCREEN_HEIGHT * 0.5f),
+		scale(256.0f), rotation(120.0f), angle(0.0f) { }
 
 	void spin(float);
 	void draw(void);
@@ -676,14 +674,25 @@ bool in_big_spinner(const Spinner& small) {
 }
 
 void draw_small_spinners(void) {
+	int n = 0;
+	float angle;
+
 	small_spinner.y = SCREEN_HEIGHT * 0.2f;
 	while(small_spinner.y <= SCREEN_HEIGHT * 0.8f) {
 		small_spinner.x = SCREEN_WIDTH * 0.2f;
 		while(small_spinner.x <= SCREEN_WIDTH * 0.8f) {
 			if (!in_big_spinner(small_spinner)) {
-				small_spinner.draw();
+				if (n == 36) {
+					angle = small_spinner.angle;
+					small_spinner.angle = 180.0f;
+					small_spinner.draw();
+					small_spinner.angle = angle;
+				} else {
+					small_spinner.draw();
+				}
 			}
 			small_spinner.x += small_spinner.scale * 2.5f;
+			n++;
 		}
 		small_spinner.y += small_spinner.scale * 2.5f;
 	}
