@@ -9,7 +9,7 @@ CXX = clang++
 INCLUDE = include `sdl2-config --cflags` \
 	-I/System/Library/Frameworks/OpenGL.framework/Headers
 
-CFLAGS = -g -Wall -std=c99 -I$(INCLUDE)
+CFLAGS = -g -Wall -std=c99 -I$(INCLUDE)	# -DDEBUG -DFRAMECOUNTER
 CXXFLAGS = -g -Wall -std=c++11 -I$(INCLUDE)
 LIB_OPTS = `sdl2-config --libs` -lm -framework OpenGL
 EXECNAME = glwhyz

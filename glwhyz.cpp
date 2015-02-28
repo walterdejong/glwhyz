@@ -21,6 +21,9 @@ using namespace std;
 // enable debug printing
 //#define DEBUG	1
 
+// enable FPS counter
+//#define FRAMECOUNTER	1
+
 const char *VERSION = "v2.2";
 
 const int SCREEN_WIDTH = 1920;
@@ -29,8 +32,7 @@ const int SCREEN_HEIGHT = 1080;
 // options
 const int OPT_WIREFRAME = 1;
 const int OPT_PAUSED = 2;
-const int OPT_FRAMECOUNTER = 4;
-const int OPT_FULLSCREEN = 8;
+const int OPT_FULLSCREEN = 4;
 
 
 class TextureMgr {
@@ -192,9 +194,12 @@ Scroller scroller;
 ParticleSystem particles;
 
 float perf_freq;
+Uint64 last_time;
+
+#ifdef FRAMECOUNTER
 int framecount = 0;
 Uint64 framecount_timer;
-Uint64 last_time;
+#endif	// FRAMECOUNTER
 
 
 void debug(const char *fmt, ...) {
@@ -731,6 +736,7 @@ void draw_scene(void) {
 	particles.draw(5);
 }
 
+#ifdef FRAMECOUNTER
 void count_framerate(void) {
 	framecount++;
 	if (framecount > 100) {
@@ -740,6 +746,7 @@ void count_framerate(void) {
 		framecount = 0;
 	}
 }
+#endif	// FRAMECOUNTER
 
 void draw_screen(void) {
 	draw_scene();
@@ -752,9 +759,9 @@ void draw_screen(void) {
 	}
 	SDL_GL_SwapWindow(main_window);
 
-	if (options & OPT_FRAMECOUNTER) {
-		count_framerate();
-	}
+#ifdef FRAMECOUNTER
+	count_framerate();
+#endif	// FRAMECOUNTER
 }
 
 void init_gl(void) {
@@ -947,10 +954,6 @@ void handle_keypress(int key) {
 			options ^= OPT_PAUSED;
 			break;
 
-		case SDLK_f:
-			options ^= OPT_FRAMECOUNTER;
-			break;
-
 		case SDLK_RETURN:
 			if (options & OPT_FULLSCREEN) {
 				// doesn't work; can't set window size; SDL bug?
@@ -1043,7 +1046,12 @@ int main(int argc, const char *argv[]) {
 
 	perf_freq = SDL_GetPerformanceFrequency();
 	debug("perf_freq: %f", perf_freq);
-	last_time = framecount_timer = SDL_GetPerformanceCounter();
+	last_time = SDL_GetPerformanceCounter();
+
+#ifdef FRAMECOUNTER
+	framecount_timer = last_time;
+#endif	// FRAMECOUNTER
+
 	draw_screen();
 	for(;;) {
 		handle_events();
