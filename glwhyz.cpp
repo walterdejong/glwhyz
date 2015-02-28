@@ -25,13 +25,6 @@ using namespace std;
 #define SCREEN_HEIGHT		1080
 #define SCREEN_BPP			32
 
-//	dimensions of the copyright scroller
-#define SCROLLER_WIDTH		((GLfloat)SCREEN_WIDTH)
-#define SCROLLER_HEIGHT		16.0f
-#define SCROLLER_SPEED		10.0f
-#define SCROLLER_SCALE_X	0.5f
-#define SCROLLER_SCALE_Y	1.25f
-
 // defines for the wave form
 #define QUAD_W				16
 #define QUAD_H				16
@@ -125,14 +118,23 @@ public:
 
 // copyright scroller
 class Scroller {
+	const float WIDTH = SCREEN_WIDTH;
+	const float HEIGHT = 16.0f;
+	const float SPEED = 10.0f;
+	const float SCALE_X = 0.5f;
+	const float SCALE_Y = 1.25f;
+
 	GLfloat x;
 	GLfloat direction;
 	GLfloat angle;
+	int texture;
 
 public:
 	int depth;		// the scroller can "move" between layers
 
-	void init(void);
+	Scroller() : x(SCREEN_WIDTH * 0.5f), direction(-Scroller::SPEED), angle(0.0f),
+		texture(TextureMgr::TEX_SCROLLER), depth(2) { }
+
 	void move(float);
 	void draw(void);
 };
@@ -468,13 +470,6 @@ void Spinner::draw(void) {
 	glPopMatrix();
 }
 
-void Scroller::init(void) {
-	x = SCREEN_WIDTH * 0.5f,
-	direction = -SCROLLER_SPEED,
-	angle = 0.0f,
-	depth = 2;		// the scroller can "move" between layers
-}
-
 void Scroller::move(float timestep) {
 	if (timestep <= 0.001f) {
 		return;
@@ -482,19 +477,19 @@ void Scroller::move(float timestep) {
 	if (options & OPT_PAUSED) {
 		return;
 	}
-	x += direction * timestep * SCROLLER_SPEED;
+	x += direction * timestep * Scroller::SPEED;
 
 	// when the scroller goes off-screen, restart it under an angle
-	if ((x + SCROLLER_WIDTH + SCROLLER_WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
-		|| x > SCREEN_WIDTH * 0.5f + SCROLLER_WIDTH * 0.25f) {
+	if ((x + Scroller::WIDTH + Scroller::WIDTH * 0.25f) < -SCREEN_WIDTH * 0.5f
+		|| x > SCREEN_WIDTH * 0.5f + Scroller::WIDTH * 0.25f) {
 		x = (GLfloat)SCREEN_WIDTH * 0.5f;
 		angle = (GLfloat)(random() % 180 - 90);
-		direction = -SCROLLER_SPEED;
+		direction = -Scroller::SPEED;
 
 		if (random() & 1) {
 			direction = -direction;
 			x = -x;
-			x -= SCROLLER_WIDTH;
+			x -= Scroller::WIDTH;
 		}
 		// set a new scroller depth, do not choose the same depth twice in a row
 		int new_depth = random() % 2;
@@ -523,22 +518,22 @@ void Scroller::draw(void) {
 		glTranslatef(x, 0.0f, 0.0f);
 	} else {
 		// if the angle is 0, put the scroller below in the screen
-		glTranslatef(x, -(GLfloat)SCREEN_HEIGHT * 0.5f + SCROLLER_HEIGHT, 0.0f);
+		glTranslatef(x, -(GLfloat)SCREEN_HEIGHT * 0.5f + Scroller::HEIGHT, 0.0f);
 	}
-	glScalef(SCROLLER_SCALE_X, SCROLLER_SCALE_Y, 1.0f);
+	glScalef(Scroller::SCALE_X, Scroller::SCALE_Y, 1.0f);
 
 	if (options & OPT_WIREFRAME) {
 		glColor3ub(0xff, 0, 0xff);
 	}
 	// scroller text is an image texture
 	// could have been TTF font rendering ...
-	texmgr.glbind(TextureMgr::TEX_SCROLLER);
+	texmgr.glbind(texture);
 
 	const GLfloat vertex_arr[8] = { 
-		0, SCROLLER_HEIGHT,
+		0, Scroller::HEIGHT,
 		0, 0,
-		SCROLLER_WIDTH, SCROLLER_HEIGHT,
-		SCROLLER_WIDTH, 0
+		Scroller::WIDTH, Scroller::HEIGHT,
+		Scroller::WIDTH, 0
 	};
 
 	const GLfloat tex_arr[8] = {
@@ -988,7 +983,6 @@ int main(int argc, const char *argv[]) {
 		exit_program(-1);
 	}
 	wave.init();
-	scroller.init();
 	particles.init();
 
 	small_spinner.scale = spinner.scale * 0.1f;
