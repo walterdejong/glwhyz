@@ -90,6 +90,7 @@ class Wave {
 	int xt, yt;
 	float xtime, ytime;
 	float scale;
+	int texture;
 /*
 	used for the wave effect:
 	* org_vertex holds a large square that has been subdivided into small triangles
@@ -104,7 +105,7 @@ class Wave {
 public:
 	Wave() : x((SCREEN_WIDTH - (DIM_W + WAVE_SCALE * DIM_W)) * 0.5f),
 		y((SCREEN_HEIGHT - (DIM_H + WAVE_SCALE * DIM_H)) * 0.5f),
-		xt(0), yt(0), xtime(0.0f), ytime(0.0), scale(2.0f) { }
+		xt(0), yt(0), xtime(0.0f), ytime(0.0), scale(2.0f), texture(TextureMgr::TEX_WAVE) { }
 
 	void init(void);
 	void animate(float);
@@ -368,8 +369,7 @@ void Wave::draw(void) {
 	if (options & OPT_WIREFRAME) {
 		glColor3ub(0xff, 0xff, 0);
 	}
-	// FIXME texture_idx member
-	texmgr.glbind(TextureMgr::TEX_WAVE);
+	texmgr.glbind(texture);
 
 	GLfloat vertex_arr[(DIM_W+1) * 4];
 	GLfloat tex_arr[(DIM_W+1) * 4];
