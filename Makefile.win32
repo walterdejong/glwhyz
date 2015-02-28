@@ -3,7 +3,7 @@
 #	glwhyz for Windows Makefile	WJ107
 #
 #	this requires MinGW
-#
+#	(untested for 2015 version)
 
 CC = gcc
 
