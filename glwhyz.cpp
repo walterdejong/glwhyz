@@ -19,17 +19,17 @@ using namespace std;
 // enable debug printing
 //#define DEBUG	1
 
-#define VERSION				"v2.0"
+const char *VERSION = "v2.2";
 
-#define SCREEN_WIDTH		1920
-#define SCREEN_HEIGHT		1080
-#define SCREEN_BPP			32
+const int SCREEN_WIDTH = 1920;
+const int SCREEN_HEIGHT = 1080;
 
 // options
-#define OPT_WIREFRAME		1
-#define OPT_PAUSED			2
-#define OPT_FRAMECOUNTER	4
-#define OPT_FULLSCREEN		8
+const int OPT_WIREFRAME = 1;
+const int OPT_PAUSED = 2;
+const int OPT_FRAMECOUNTER = 4;
+const int OPT_FULLSCREEN = 8;
+
 
 class TextureMgr {
 public:
@@ -968,7 +968,7 @@ void handle_events(void) {
 }
 
 int main(int argc, const char *argv[]) {
-	printf("glWHYz! demo " VERSION " - Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>\n");
+	printf("glWHYz! demo %s - Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>\n", VERSION);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "SDL_Init() failed\n");
