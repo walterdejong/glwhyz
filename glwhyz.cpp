@@ -37,9 +37,6 @@ using namespace std;
 #define SCROLLER_SCALE_X	0.5f
 #define SCROLLER_SCALE_Y	1.25f
 
-// rotating background
-#define ROTATE_SPEED		120.0f
-
 // defines for the wave form
 #define DIM_X				512
 #define DIM_Y				512
@@ -117,12 +114,13 @@ public:
 };
 
 class Spinner {
-	// TODO add x, y
-	// TODO add per-object angular direction, speed?
 	float angle;
 
 public:
-	Spinner() : angle(0.0f) { }
+	float x, y, scale, rotation;
+
+	Spinner() : angle(0.0f), x(SCREEN_WIDTH * 0.5f), y(SCREEN_HEIGHT * 0.5f),
+		scale(256.0f), rotation(120.0f) { }
 
 	void spin(float);
 	void draw(void);
@@ -182,7 +180,7 @@ const char *texture_filenames[] = {
 };
 
 Wave wave;
-Spinner spinner;
+Spinner spinner, small_spinner;
 Scroller scroller;
 ParticleSystem particles;
 
@@ -423,9 +421,13 @@ void Spinner::spin(float timestep) {
 		return;
 	}
 	if (!(options & OPT_PAUSED)) {
-		angle += ROTATE_SPEED * timestep;	// rotate
-		if (angle >= 360.0f)
+		angle += rotation * timestep;
+		if (angle < 0.0f) {
+			angle += 360.0f;
+		}
+		if (angle >= 360.0f) {
 			angle -= 360.0f;
+		}
 	}
 }
 
@@ -433,9 +435,9 @@ void Spinner::spin(float timestep) {
 void Spinner::draw(void) {
 	glPushMatrix();
 	// center it
-	glTranslatef(SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f, 0.0f);
+	glTranslatef(x, y, 0.0f);
 	// make reasonable size
-	glScalef(256.0f, 256.0f, 1.0f);
+	glScalef(scale, scale, 1.0f);
 
 	// spin it around
 	glRotatef(angle, 0.0f, 0.0f, 1.0f);
@@ -663,6 +665,30 @@ void ParticleSystem::draw(int depth) {
 	glPopMatrix();
 }
 
+bool in_big_spinner(const Spinner& small) {
+	// note: the big spinner is just plain 'spinner'
+	// its radius equals scale (because it's unit * scale)
+	float dx = spinner.x - small.x;
+	float dy = spinner.y - small.y;
+	float d_squared = dx * dx + dy * dy;
+	float r = spinner.scale + small.scale;
+	return d_squared <= r * r;
+}
+
+void draw_small_spinners(void) {
+	small_spinner.y = SCREEN_HEIGHT * 0.2f;
+	while(small_spinner.y <= SCREEN_HEIGHT * 0.8f) {
+		small_spinner.x = SCREEN_WIDTH * 0.2f;
+		while(small_spinner.x <= SCREEN_WIDTH * 0.8f) {
+			if (!in_big_spinner(small_spinner)) {
+				small_spinner.draw();
+			}
+			small_spinner.x += small_spinner.scale * 2.5f;
+		}
+		small_spinner.y += small_spinner.scale * 2.5f;
+	}
+}
+
 void draw_scene(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -670,17 +696,16 @@ void draw_scene(void) {
 	// reverse camera
 	glTranslatef(-cam_x, -cam_y, 0.0f);
 
+	draw_small_spinners();
 	particles.draw(0);
-
 	if (!scroller.depth) {
 		scroller.draw();
 	}
-	particles.draw(1);
 
+	particles.draw(1);
 	spinner.draw();
 
 	particles.draw(2);
-
 	if (scroller.depth == 1) {
 		scroller.draw();
 	}
@@ -689,7 +714,6 @@ void draw_scene(void) {
 	wave.draw();
 
 	particles.draw(4);
-
 	if (scroller.depth == 2) {
 		scroller.draw();
 	}
@@ -959,6 +983,9 @@ int main(int argc, const char *argv[]) {
 	scroller.init();
 	particles.init();
 
+	small_spinner.scale = spinner.scale * 0.1f;
+	small_spinner.rotation = -spinner.rotation;
+
 	srandom(time(NULL));
 
 	perf_freq = SDL_GetPerformanceFrequency();
@@ -975,6 +1002,7 @@ int main(int argc, const char *argv[]) {
 		if (!(options & OPT_PAUSED)) {
 			wave.animate(timestep);
 			spinner.spin(timestep);
+			small_spinner.spin(timestep);
 			particles.move(timestep);
 			scroller.move(timestep);
 		}
