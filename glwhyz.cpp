@@ -1,5 +1,6 @@
 //
 //	glWHYz! demo	WJ107
+//	Copyright (C) 2007 2015 by Walter de Jong <walter@heiho.net>
 //
 //	totally revised in 2015
 
