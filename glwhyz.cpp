@@ -99,9 +99,10 @@ public:
 class Spinner {
 public:
 	float x, y, scale, rotation, angle;
+	int texture;
 
 	Spinner() : x(SCREEN_WIDTH * 0.5f), y(SCREEN_HEIGHT * 0.5f),
-		scale(256.0f), rotation(120.0f), angle(0.0f) { }
+		scale(256.0f), rotation(120.0f), angle(0.0f), texture(TextureMgr::TEX_SMILEY) { }
 
 	void spin(float);
 	void draw(void);
@@ -131,7 +132,9 @@ public:
 };
 
 // (very simple) particles
-struct Particle {
+class Particle {
+	friend class ParticleSystem;
+
 	static const int WIDTH = 64;
 	static const int HEIGHT = 64;
 	static constexpr float ACCEL = 0.1f;
@@ -141,6 +144,7 @@ struct Particle {
 	float x, y, speed, drift;
 	int depth;
 
+public:
 	void init(void);
 	void move(float);
 	void draw(void);
@@ -149,8 +153,11 @@ struct Particle {
 class ParticleSystem {
 	static const int NUM_PARTICLES = 32;
 	Particle parts[ParticleSystem::NUM_PARTICLES];
+	int texture;
 
 public:
+	ParticleSystem() : texture(TextureMgr::TEX_BUBBLE) {}
+
 	void init(void);
 	void move(float);
 	void draw(int);
@@ -444,7 +451,7 @@ void Spinner::draw(void) {
 	} else {
 		glColor3f(1.0f, 1.0f, 1.0f);
 	}
-	texmgr.glbind(TextureMgr::TEX_SMILEY);
+	texmgr.glbind(texture);
 
 	const GLfloat vertex_arr[8] = { 
 		-1, 1,
@@ -633,7 +640,7 @@ void ParticleSystem::draw(int depth) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
 	}
-	texmgr.glbind(TextureMgr::TEX_BUBBLE);
+	texmgr.glbind(texture);
 
 	const GLfloat tex_arr[8] = {
 		0, 0,
