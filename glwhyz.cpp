@@ -856,6 +856,9 @@ void window_event(int event) {
 			screen_w = (float)w;
 			screen_h = (float)h;
 			glViewport(0, 0, screen_w, screen_h);
+
+			// reset time
+			last_time = SDL_GetPerformanceCounter();
 			break;
 
 		case SDL_WINDOWEVENT_FOCUS_LOST:
