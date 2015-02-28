@@ -1,6 +1,7 @@
 //
 //	glWHYz! demo	WJ107
 //
+//	totally revised in 2015
 
 #include "tga.h"
 
