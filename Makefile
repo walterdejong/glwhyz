@@ -6,12 +6,14 @@
 CC = clang
 CXX = clang++
 
-INCLUDE = include `sdl2-config --cflags` \
-	-I/System/Library/Frameworks/OpenGL.framework/Headers
+#INCLUDE = include `sdl2-config --cflags` \
+#	-I/System/Library/Frameworks/OpenGL.framework/Headers
+INCLUDE = include `sdl2-config --cflags` -I/usr/include/GL
 
 CFLAGS = -g -Wall -std=c99 -I$(INCLUDE)	# -DDEBUG -DFRAMECOUNTER
 CXXFLAGS = -g -Wall -std=c++11 -I$(INCLUDE)
-LIB_OPTS = `sdl2-config --libs` -lm -framework OpenGL
+#LIB_OPTS = `sdl2-config --libs` -lm -framework OpenGL
+LIB_OPTS = `sdl2-config --libs` -lm -lGL
 EXECNAME = glwhyz
 
 .c.o:
